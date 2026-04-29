@@ -1,62 +1,65 @@
 # Sonora
 
-A lightweight native macOS music player with synced lyrics for local audio files.
+A lightweight, native macOS music player with synced lyrics for local audio files.
 
-Sonora is planned as a native SwiftUI macOS app for local music playback, metadata-based lyric matching, synced lyric display, and local lyric caching.
+Sonora provides a seamless playback experience for your local music collection, automatically matching metadata with online providers to fetch high-quality synced lyrics and album artwork. Built entirely in Swift and SwiftUI, it offers a fast, native, and beautiful interface.
 
-## Status
+![Sonora Screenshot](https://raw.githubusercontent.com/HansonHe-UW/sonora-mac/main/images/screenshot.png) *(Note: Replace with actual screenshot path if available)*
 
-This repository currently contains the initial runnable app skeleton. The first slice establishes the app structure, UI shell, core module boundaries, and repeatable build/run workflow. Real file import, AVFoundation playback, online lyric providers, and persistent caching are planned follow-up milestones.
+## Features
+
+- **Native macOS Interface**: Built from the ground up with SwiftUI for a modern, fluid, and responsive native experience.
+- **Synced Lyrics**: Automatically fetches and displays time-synced lyrics (LRC format) for your tracks.
+- **Smart Lyric Matching**: 
+  - Integrates with **NetEase Cloud Music** (prioritized) and **LRCLIB**.
+  - Built-in **Traditional to Simplified Chinese conversion** ensures accurate lyric matching even when track metadata uses traditional characters.
+  - Fail-safe fallback to plain text lyrics if time-synced ones are unavailable.
+  - Instantly switch or retry sources if a match is incorrect.
+- **Smart Artwork Fetching**: Automatically fetches missing album covers from iTunes, using smart scoring to correctly distinguish between studio albums, live versions, and compilations.
+- **Local Library Management**: 
+  - Drag-and-drop or select folders to import local audio files.
+  - Persistent library state saves your queue, tracks, and local caches across launches.
+  - Real-time search to instantly filter your library by title, artist, or album.
+  - One-click library clearing to start fresh.
+- **Offline Caching**: Lyrics and artwork are cached locally so they load instantly on subsequent plays without needing a network connection.
 
 ## Tech Stack
 
-- Swift + SwiftUI
-- Swift Package Manager
-- AVFoundation for future local playback and metadata validation
-- URLSession for future lyric provider integrations
-- SQLite/GRDB planned for local library and lyric cache persistence
+- **UI Framework**: Swift 6 + SwiftUI
+- **Audio Engine**: AVFoundation for robust local playback and metadata extraction
+- **Networking**: URLSession for API integrations
+- **Persistence**: File-based JSON snapshots and dedicated local caching stores
+- **Testing**: Swift Testing framework
 
-## Audio Format Policy
+## Supported Audio Formats
 
-v1 target formats:
+Sonora currently supports importing and playing the following DRM-free audio formats:
 
 - `.mp3`
 - `.m4a`
 - `.aac`
 - `.wav`
 - `.flac`
-- `.aiff`
-- `.aif`
+- `.aiff` / `.aif`
 - `.caf`
 
-v1 unsupported formats:
-
-- `.ncm`
-- `.qmc*`
-- `.kgm`
-- `.mflac0`
-- `.ogg`
-- `.opus`
-- `.ape`
-- `.wma`
-
-The future importer will use file extensions only as a first-pass filter. Final acceptance should be based on AVFoundation runtime validation so corrupted, encrypted, DRM-protected, or mislabelled files fail with a clear reason.
+*(Note: Encrypted, DRM-protected, or unsupported proprietary formats like `.ncm` and `.qmc*` will be automatically skipped during import.)*
 
 ## Development
 
-Build and run the macOS app bundle:
+Build and run the macOS app bundle directly:
 
 ```bash
 ./script/build_and_run.sh
 ```
 
-Verify the app launches:
+Verify the app launches (dry run):
 
 ```bash
 ./script/build_and_run.sh --verify
 ```
 
-Run tests:
+Run the complete test suite:
 
 ```bash
 swift test
