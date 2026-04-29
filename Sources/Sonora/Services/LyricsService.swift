@@ -64,7 +64,7 @@ final class LyricsService: ObservableObject {
 
     guard isAutoDownloadEnabled else {
       guard isActive(requestID) else { return }
-      state = .unavailable("Automatic lyrics download is disabled in Settings.")
+      state = .unavailable(.downloadDisabled)
       return
     }
 
@@ -91,12 +91,18 @@ final class LyricsService: ObservableObject {
       }
 
       guard isActive(requestID) else { return }
-      state = .unavailable("No online lyrics match found.")
+      state = .unavailable(.noMatch)
     } catch is CancellationError {
       return
     } catch {
       guard isActive(requestID) else { return }
-      state = .unavailable((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+      let reason: LyricsUnavailableReason
+      if (error as? URLError) != nil {
+        reason = .networkFailure
+      } else {
+        reason = .providerError((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+      }
+      state = .unavailable(reason)
     }
   }
 

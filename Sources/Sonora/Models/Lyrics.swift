@@ -94,9 +94,29 @@ struct ArtworkSuggestion: Identifiable, Hashable {
   }
 }
 
+enum LyricsUnavailableReason: Hashable {
+  case noMatch
+  case networkFailure
+  case downloadDisabled
+  case providerError(String)
+
+  var displayMessage: String {
+    switch self {
+    case .noMatch:
+      return "No lyrics found for this track."
+    case .networkFailure:
+      return "Could not reach lyrics provider. Check your connection."
+    case .downloadDisabled:
+      return "Automatic lyrics download is disabled in Settings."
+    case .providerError(let detail):
+      return "Lyrics provider error: \(detail)"
+    }
+  }
+}
+
 enum LyricsLookupState: Hashable {
   case empty
   case loading(String)
   case ready(LyricsResult)
-  case unavailable(String)
+  case unavailable(LyricsUnavailableReason)
 }

@@ -12,9 +12,7 @@ struct LyricsPanelView: View {
 
         Spacer()
 
-        Label("Provider-ready", systemImage: "cloud")
-          .font(.caption)
-          .foregroundStyle(.secondary)
+        lyricsStatusView
       }
 
       switch state {
@@ -29,8 +27,27 @@ struct LyricsPanelView: View {
         LyricsResultView(result: result, currentTime: currentTime)
 
       case .unavailable(let reason):
-        ContentUnavailableView("Lyrics Unavailable", systemImage: "text.quote", description: Text(reason))
+        ContentUnavailableView(
+          "Lyrics Unavailable",
+          systemImage: {
+            if case .downloadDisabled = reason { return "arrow.down.circle.slash" }
+            return "text.quote"
+          }(),
+          description: Text(reason.displayMessage)
+        )
       }
+    }
+  }
+
+  @ViewBuilder
+  private var lyricsStatusView: some View {
+    switch state {
+    case .loading:
+      ProgressView()
+        .scaleEffect(0.6)
+        .frame(width: 16, height: 16)
+    case .empty, .ready, .unavailable:
+      EmptyView()
     }
   }
 }
@@ -81,13 +98,29 @@ private struct SyncedLyricsView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      ForEach(lines) { line in
-        Text(line.text)
-          .font(line.id == highlightedLineID ? .title2.weight(.semibold) : .title3)
-          .foregroundStyle(line.id == highlightedLineID ? .primary : .secondary)
-          .animation(.easeInOut(duration: 0.18), value: highlightedLineID)
+
+    ScrollViewReader { proxy in
+      ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+          ForEach(lines) { line in
+            Text(line.text)
+              .id(line.id)
+              .font(line.id == highlightedLineID ? .title2.weight(.semibold) : .title3)
+              .foregroundStyle(line.id == highlightedLineID ? .primary : .secondary)
+              .animation(.easeInOut(duration: 0.18), value: highlightedLineID)
+          }
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .task(id: highlightedLineID) {
+        guard let id = highlightedLineID else { return }
+        await Task.yield()
+        withAnimation(.easeInOut(duration: 0.25)) {
+          proxy.scrollTo(id, anchor: .center)
+        }
       }
     }
+    .frame(maxHeight: 420)
   }
 }
