@@ -10,6 +10,7 @@ struct LyricsPanelView: View {
 
   private let offsetRange: ClosedRange<TimeInterval> = -3...3
   private let offsetStep: TimeInterval = 0.1
+  private let reloadHelpText = "Reload lyrics, ignore cache, and keep the current playback position."
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -28,32 +29,23 @@ struct LyricsPanelView: View {
         lyricsStatusView
       }
 
-      switch state {
-      case .empty:
-        Text("Lyrics will appear here after local cache, LRC, or online provider lookup.")
-          .foregroundStyle(.secondary)
-
-      case .loading(let message):
-        ProgressView(message)
-
-      case .ready(let result):
+      if case .ready(let result) = state {
         LyricsResultView(
           result: result,
           currentTime: currentTime,
           lyricsOffset: lyricsOffset,
           onSeek: onSeek,
           onReload: onReload,
-          onSwitchSource: onSwitchSource
+          onSwitchSource: onSwitchSource,
+          reloadHelpText: reloadHelpText
         )
-
-      case .unavailable(let reason):
-        ContentUnavailableView(
-          "Lyrics Unavailable",
-          systemImage: {
-            if case .downloadDisabled = reason { return "arrow.down.circle.slash" }
-            return "text.quote"
-          }(),
-          description: Text(reason.displayMessage)
+      } else if case .loading(let message) = state {
+        LyricsLoadingView(message: message)
+      } else if let presentation = LyricsStatePresentation.forState(state) {
+        LyricsStateView(
+          presentation: presentation,
+          onReload: presentation.showsReloadAction ? onReload : nil,
+          reloadHelpText: reloadHelpText
         )
       }
     }
@@ -68,6 +60,43 @@ struct LyricsPanelView: View {
         .frame(width: 16, height: 16)
     case .empty, .ready, .unavailable:
       EmptyView()
+    }
+  }
+}
+
+private struct LyricsLoadingView: View {
+  var message: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      ProgressView()
+        .controlSize(.regular)
+
+      Text("Loading Lyrics")
+        .font(.headline)
+
+      Text(message)
+        .foregroundStyle(.secondary)
+    }
+    .padding(.top, 8)
+  }
+}
+
+private struct LyricsStateView: View {
+  var presentation: LyricsStatePresentation
+  var onReload: (() -> Void)?
+  var reloadHelpText: String
+
+  var body: some View {
+    ContentUnavailableView {
+      Label(presentation.title, systemImage: presentation.systemImage)
+    } description: {
+      Text(presentation.message)
+    } actions: {
+      if let onReload {
+        Button("Reload Lyrics", action: onReload)
+          .help(reloadHelpText)
+      }
     }
   }
 }
@@ -136,6 +165,7 @@ private struct LyricsResultView: View {
   var onSeek: ((TimeInterval) -> Void)?
   var onReload: (() -> Void)?
   var onSwitchSource: ((String) -> Void)?
+  var reloadHelpText: String
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
@@ -152,6 +182,7 @@ private struct LyricsResultView: View {
             .padding(.bottom, 200)
         }
         .scrollIndicators(.hidden)
+        .background(TransientScrollerConfigurator())
       case .synced(let lines):
         SyncedLyricsView(lines: lines, currentTime: currentTime, lyricsOffset: lyricsOffset, onSeek: onSeek)
       }
@@ -180,7 +211,7 @@ private struct LyricsResultView: View {
             .buttonStyle(.borderless)
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
-            .help("Reload lyrics and ignore cache")
+            .help(reloadHelpText)
           }
         }
 
@@ -249,6 +280,7 @@ private struct SyncedLyricsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
       }
       .scrollIndicators(.hidden)
+      .background(TransientScrollerConfigurator())
       .mask(
         LinearGradient(
           stops: [
