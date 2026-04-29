@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct ContentView: View {
-  @StateObject private var libraryStore = LibraryStore()
-  @StateObject private var playerCore = PlayerCore()
-  @StateObject private var lyricsService = LyricsService()
-  @StateObject private var artworkService = ArtworkService()
+  @ObservedObject var libraryStore: LibraryStore
+  @ObservedObject var playerCore: PlayerCore
+  @ObservedObject var lyricsService: LyricsService
+  @ObservedObject var artworkService: ArtworkService
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
   @AppStorage("defaultLyricsOffset") private var defaultLyricsOffset = 0.0
 
@@ -38,7 +38,13 @@ struct ContentView: View {
     }
     .onAppear {
       playerCore.updateQueue(libraryStore.tracks)
-      playerCore.load(libraryStore.selectedTrack)
+
+      if playerCore.currentTrack == nil {
+        playerCore.load(libraryStore.selectedTrack)
+      } else if libraryStore.selectedTrackID != playerCore.currentTrack?.id {
+        libraryStore.selectedTrackID = playerCore.currentTrack?.id
+      }
+
       lyricsService.loadLyrics(for: playerCore.currentTrack)
       Task { await artworkService.fetchArtwork(for: playerCore.currentTrack) }
     }
