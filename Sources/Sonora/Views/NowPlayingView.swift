@@ -4,7 +4,7 @@ struct NowPlayingView: View {
   var track: Track?
   var lyricsState: LyricsLookupState
   var currentTime: TimeInterval
-  var lyricsOffset: TimeInterval = 0
+  @Binding var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)? = nil
   var onReloadLyrics: (() -> Void)? = nil
   var onSwitchSource: ((String) -> Void)? = nil
@@ -17,7 +17,7 @@ struct NowPlayingView: View {
           LyricsPanelView(
             state: lyricsState,
             currentTime: currentTime,
-            lyricsOffset: lyricsOffset,
+            lyricsOffset: $lyricsOffset,
             onSeek: onSeek,
             onReload: onReloadLyrics,
             onSwitchSource: onSwitchSource

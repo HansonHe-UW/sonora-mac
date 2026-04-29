@@ -17,7 +17,7 @@ struct ContentView: View {
           track: playerCore.currentTrack,
           lyricsState: lyricsService.state,
           currentTime: playerCore.currentTime,
-          lyricsOffset: defaultLyricsOffset,
+          lyricsOffset: $defaultLyricsOffset,
           onSeek: { time in
             guard let duration = playerCore.currentTrack?.duration, duration > 0 else { return }
             let adjustedTime = LyricsTiming.seekTime(forLyricTime: time, offset: defaultLyricsOffset)

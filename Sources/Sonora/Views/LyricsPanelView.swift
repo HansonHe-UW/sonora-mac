@@ -3,10 +3,13 @@ import SwiftUI
 struct LyricsPanelView: View {
   var state: LyricsLookupState
   var currentTime: TimeInterval
-  var lyricsOffset: TimeInterval = 0
+  @Binding var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)? = nil
   var onReload: (() -> Void)? = nil
   var onSwitchSource: ((String) -> Void)? = nil
+
+  private let offsetRange: ClosedRange<TimeInterval> = -3...3
+  private let offsetStep: TimeInterval = 0.1
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -14,14 +17,11 @@ struct LyricsPanelView: View {
         Text("Lyrics")
           .font(.title2.weight(.semibold))
 
-        if let onReload {
-          Button(action: onReload) {
-            Image(systemName: "arrow.clockwise")
-          }
-          .buttonStyle(.plain)
-          .foregroundStyle(.secondary)
-          .help("Reload lyrics and ignore cache")
-        }
+        LyricsOffsetControls(
+          offset: $lyricsOffset,
+          range: offsetRange,
+          step: offsetStep
+        )
 
         Spacer()
 
@@ -42,6 +42,7 @@ struct LyricsPanelView: View {
           currentTime: currentTime,
           lyricsOffset: lyricsOffset,
           onSeek: onSeek,
+          onReload: onReload,
           onSwitchSource: onSwitchSource
         )
 
@@ -71,11 +72,69 @@ struct LyricsPanelView: View {
   }
 }
 
+private struct LyricsOffsetControls: View {
+  @Binding var offset: TimeInterval
+  var range: ClosedRange<TimeInterval>
+  var step: TimeInterval
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Button {
+        offset = clampedOffset(offset - step)
+      } label: {
+        Text("-0.1s")
+      }
+      .buttonStyle(.borderless)
+      .disabled(offset <= range.lowerBound)
+
+      Text(formattedOffset)
+        .font(.caption.monospacedDigit().weight(.medium))
+        .foregroundStyle(.secondary)
+        .frame(minWidth: 46, alignment: .center)
+
+      Button {
+        offset = clampedOffset(offset + step)
+      } label: {
+        Text("+0.1s")
+      }
+      .buttonStyle(.borderless)
+      .disabled(offset >= range.upperBound)
+
+      Button {
+        offset = 0
+      } label: {
+        Image(systemName: "arrow.uturn.backward")
+      }
+      .buttonStyle(.borderless)
+      .disabled(isResetDisabled)
+      .help("Reset lyrics offset")
+    }
+    .font(.caption.weight(.medium))
+  }
+
+  private var formattedOffset: String {
+    if abs(offset) < 0.05 {
+      return "0.0s"
+    }
+
+    return String(format: "%+.1fs", offset)
+  }
+
+  private var isResetDisabled: Bool {
+    abs(offset) < 0.05
+  }
+
+  private func clampedOffset(_ value: TimeInterval) -> TimeInterval {
+    min(max(value, range.lowerBound), range.upperBound)
+  }
+}
+
 private struct LyricsResultView: View {
   var result: LyricsResult
   var currentTime: TimeInterval
   var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)?
+  var onReload: (() -> Void)?
   var onSwitchSource: ((String) -> Void)?
 
   var body: some View {
@@ -110,6 +169,18 @@ private struct LyricsResultView: View {
             .buttonStyle(.borderless)
             .font(.caption.weight(.medium))
             .foregroundStyle(Color.accentColor)
+          }
+
+          if let onReload {
+            Button {
+              onReload()
+            } label: {
+              Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .help("Reload lyrics and ignore cache")
           }
         }
 
