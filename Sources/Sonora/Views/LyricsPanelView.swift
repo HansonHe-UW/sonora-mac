@@ -84,12 +84,15 @@ private struct LyricsResultView: View {
       case .plain(let text):
         ScrollView {
           Text(text)
-            .font(.title3)
+            .font(.title3.weight(.regular))
             .foregroundStyle(.primary)
+            .lineSpacing(8)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 64)
+            .padding(.top, 16)
+            .padding(.bottom, 200)
         }
+        .scrollIndicators(.hidden)
       case .synced(let lines):
         SyncedLyricsView(lines: lines, currentTime: currentTime, lyricsOffset: lyricsOffset, onSeek: onSeek)
       }
@@ -134,27 +137,40 @@ private struct SyncedLyricsView: View {
 
   @State private var scrollPolicy = SyncedLyricsScrollPolicy()
 
+  private var displayLines: [SyncedLyricsDisplayLine] {
+    SyncedLyricsDisplayLines.make(from: lines)
+  }
+
   private var scrollState: SyncedLyricsScrollState {
-    SyncedLyricsScrollState(lines: lines, currentTime: currentTime, lyricsOffset: lyricsOffset)
+    SyncedLyricsScrollState(lines: displayLines, currentTime: currentTime, lyricsOffset: lyricsOffset)
   }
 
   var body: some View {
+    let displayLines = displayLines
     let activeLineID = scrollState.activeLineID
+    let activeIndex = displayLines.firstIndex { $0.id == activeLineID }
 
     ScrollViewReader { proxy in
       ScrollView {
-        VStack(alignment: .leading, spacing: 18) {
-          ForEach(lines) { line in
-            let isActive = line.id == activeLineID
-            Text(line.text)
-              .id(line.id)
-              .font(isActive ? .title2.weight(.bold) : .title3.weight(.regular))
-              .foregroundStyle(.primary)
-              .opacity(isActive ? 1.0 : 0.35)
-              .scaleEffect(isActive ? 1.0 : 0.97, anchor: .leading)
-              .animation(.spring(response: 0.45, dampingFraction: 0.82), value: activeLineID)
-              .onTapGesture { onSeek?(line.time) }
-              .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 8) {
+          ForEach(Array(displayLines.enumerated()), id: \.element.id) { index, line in
+            let visualTier = LyricsLineVisualTier.tier(for: index, activeIndex: activeIndex)
+            HStack {
+              Text(line.text)
+                .font(font(for: visualTier))
+                .foregroundStyle(.primary)
+                .opacity(opacity(for: visualTier))
+                .lineSpacing(lineSpacing(for: visualTier))
+                .scaleEffect(scale(for: visualTier), anchor: .leading)
+
+              Spacer(minLength: 0)
+            }
+            .id(line.id)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { onSeek?(line.time) }
+            .padding(.bottom, line.endsSourceLine ? 10 : 0)
+            .animation(.spring(response: 0.45, dampingFraction: 0.82), value: activeLineID)
           }
         }
         .padding(.top, 16)
@@ -190,5 +206,47 @@ private struct SyncedLyricsView: View {
       }
     }
     .frame(maxHeight: .infinity)
+  }
+
+  private func font(for tier: LyricsLineVisualTier) -> Font {
+    switch tier {
+    case .active:
+      return .title2.weight(.bold)
+    case .neighbor:
+      return .title3.weight(.medium)
+    case .distant:
+      return .title3.weight(.regular)
+    }
+  }
+
+  private func opacity(for tier: LyricsLineVisualTier) -> Double {
+    switch tier {
+    case .active:
+      return 1
+    case .neighbor:
+      return 0.58
+    case .distant:
+      return 0.28
+    }
+  }
+
+  private func lineSpacing(for tier: LyricsLineVisualTier) -> CGFloat {
+    switch tier {
+    case .active:
+      return 5
+    case .neighbor, .distant:
+      return 4
+    }
+  }
+
+  private func scale(for tier: LyricsLineVisualTier) -> CGFloat {
+    switch tier {
+    case .active:
+      return 1
+    case .neighbor:
+      return 0.985
+    case .distant:
+      return 0.97
+    }
   }
 }

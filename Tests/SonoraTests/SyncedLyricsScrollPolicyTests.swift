@@ -5,7 +5,7 @@ import Testing
 struct SyncedLyricsScrollPolicyTests {
   @Test
   func initialUpdatePlacesCurrentPlaybackLine() {
-    let lines = makeLines()
+    let lines = makeDisplayLines()
     var policy = SyncedLyricsScrollPolicy()
 
     let state = SyncedLyricsScrollState(lines: lines, currentTime: 12, lyricsOffset: 0)
@@ -15,7 +15,7 @@ struct SyncedLyricsScrollPolicyTests {
 
   @Test
   func repeatedUpdateForSameLineDoesNotScrollAgain() {
-    let lines = makeLines()
+    let lines = makeDisplayLines()
     var policy = SyncedLyricsScrollPolicy()
     let state = SyncedLyricsScrollState(lines: lines, currentTime: 12, lyricsOffset: 0)
 
@@ -26,7 +26,7 @@ struct SyncedLyricsScrollPolicyTests {
 
   @Test
   func activeLineChangeFollowsPlayback() {
-    let lines = makeLines()
+    let lines = makeDisplayLines()
     var policy = SyncedLyricsScrollPolicy()
     let initialState = SyncedLyricsScrollState(lines: lines, currentTime: 12, lyricsOffset: 0)
     let nextState = SyncedLyricsScrollState(lines: lines, currentTime: 22, lyricsOffset: 0)
@@ -38,8 +38,8 @@ struct SyncedLyricsScrollPolicyTests {
 
   @Test
   func changedLyricsPayloadUsesInitialPlacement() {
-    let originalLines = makeLines(idPrefix: 0)
-    let replacementLines = makeLines(idPrefix: 10)
+    let originalLines = makeDisplayLines(idPrefix: 0)
+    let replacementLines = makeDisplayLines(idPrefix: 10)
     var policy = SyncedLyricsScrollPolicy()
     let originalState = SyncedLyricsScrollState(lines: originalLines, currentTime: 12, lyricsOffset: 0)
     let replacementState = SyncedLyricsScrollState(lines: replacementLines, currentTime: 12, lyricsOffset: 0)
@@ -51,10 +51,14 @@ struct SyncedLyricsScrollPolicyTests {
 
   @Test
   func activeLineCalculationUsesOffsetAdjustedTime() {
-    let lines = makeLines()
+    let lines = makeDisplayLines()
     let state = SyncedLyricsScrollState(lines: lines, currentTime: 12, lyricsOffset: 3)
 
     #expect(state.activeLineID == lines[0].id)
+  }
+
+  private func makeDisplayLines(idPrefix: Int = 0) -> [SyncedLyricsDisplayLine] {
+    SyncedLyricsDisplayLines.make(from: makeLines(idPrefix: idPrefix))
   }
 
   private func makeLines(idPrefix: Int = 0) -> [LyricsLine] {

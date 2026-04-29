@@ -1,18 +1,18 @@
 import Foundation
 
 struct SyncedLyricsPayloadID: Hashable {
-  var lineIDs: [LyricsLine.ID]
+  var lineIDs: [SyncedLyricsDisplayLine.ID]
 
-  init(lines: [LyricsLine]) {
+  init(lines: [SyncedLyricsDisplayLine]) {
     lineIDs = lines.map(\.id)
   }
 }
 
 struct SyncedLyricsScrollState: Hashable {
   var payloadID: SyncedLyricsPayloadID
-  var activeLineID: LyricsLine.ID?
+  var activeLineID: SyncedLyricsDisplayLine.ID?
 
-  init(lines: [LyricsLine], currentTime: TimeInterval, lyricsOffset: TimeInterval) {
+  init(lines: [SyncedLyricsDisplayLine], currentTime: TimeInterval, lyricsOffset: TimeInterval) {
     payloadID = SyncedLyricsPayloadID(lines: lines)
 
     let adjustedCurrentTime = LyricsTiming.adjustedCurrentTime(currentTime, offset: lyricsOffset)
@@ -21,13 +21,13 @@ struct SyncedLyricsScrollState: Hashable {
 }
 
 enum SyncedLyricsScrollAction: Equatable {
-  case initialPlacement(LyricsLine.ID)
-  case activeLineChange(LyricsLine.ID)
+  case initialPlacement(SyncedLyricsDisplayLine.ID)
+  case activeLineChange(SyncedLyricsDisplayLine.ID)
 }
 
 struct SyncedLyricsScrollPolicy {
   private var previousPayloadID: SyncedLyricsPayloadID?
-  private var previousActiveLineID: LyricsLine.ID?
+  private var previousActiveLineID: SyncedLyricsDisplayLine.ID?
 
   mutating func update(to state: SyncedLyricsScrollState) -> SyncedLyricsScrollAction? {
     defer {
