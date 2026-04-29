@@ -16,7 +16,11 @@ struct ContentView: View {
         NowPlayingView(
           track: playerCore.currentTrack,
           lyricsState: lyricsService.state,
-          currentTime: playerCore.currentTime
+          currentTime: playerCore.currentTime,
+          onSeek: { time in
+            guard let duration = playerCore.currentTrack?.duration, duration > 0 else { return }
+            playerCore.seek(to: time / duration)
+          }
         )
       }
 

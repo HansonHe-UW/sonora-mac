@@ -3,6 +3,7 @@ import SwiftUI
 struct LyricsPanelView: View {
   var state: LyricsLookupState
   var currentTime: TimeInterval
+  var onSeek: ((TimeInterval) -> Void)? = nil
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
@@ -24,7 +25,7 @@ struct LyricsPanelView: View {
         ProgressView(message)
 
       case .ready(let result):
-        LyricsResultView(result: result, currentTime: currentTime)
+        LyricsResultView(result: result, currentTime: currentTime, onSeek: onSeek)
 
       case .unavailable(let reason):
         ContentUnavailableView(
@@ -55,6 +56,7 @@ struct LyricsPanelView: View {
 private struct LyricsResultView: View {
   var result: LyricsResult
   var currentTime: TimeInterval
+  var onSeek: ((TimeInterval) -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
@@ -65,7 +67,7 @@ private struct LyricsResultView: View {
           .foregroundStyle(.primary)
           .textSelection(.enabled)
       case .synced(let lines):
-        SyncedLyricsView(lines: lines, currentTime: currentTime)
+        SyncedLyricsView(lines: lines, currentTime: currentTime, onSeek: onSeek)
       }
 
       VStack(alignment: .leading, spacing: 8) {
@@ -92,31 +94,55 @@ private struct LyricsResultView: View {
 private struct SyncedLyricsView: View {
   var lines: [LyricsLine]
   var currentTime: TimeInterval
+  var onSeek: ((TimeInterval) -> Void)?
 
   private var highlightedLineID: LyricsLine.ID? {
     lines.last { $0.time <= currentTime }?.id ?? lines.first?.id
   }
 
   var body: some View {
-
     ScrollViewReader { proxy in
       ScrollView {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 18) {
           ForEach(lines) { line in
+            let isActive = line.id == highlightedLineID
             Text(line.text)
               .id(line.id)
-              .font(line.id == highlightedLineID ? .title2.weight(.semibold) : .title3)
-              .foregroundStyle(line.id == highlightedLineID ? .primary : .secondary)
-              .animation(.easeInOut(duration: 0.18), value: highlightedLineID)
+              .font(isActive ? .title2.weight(.bold) : .title3.weight(.regular))
+              .foregroundStyle(.primary)
+              .opacity(isActive ? 1.0 : 0.35)
+              .scaleEffect(isActive ? 1.0 : 0.97, anchor: .leading)
+              .animation(.spring(response: 0.45, dampingFraction: 0.82), value: highlightedLineID)
+              .onTapGesture { onSeek?(line.time) }
+              .contentShape(Rectangle())
           }
         }
-        .padding(.vertical, 8)
+        .padding(.top, 16)
+        .padding(.bottom, 200)
         .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .scrollIndicators(.hidden)
+      .mask(
+        LinearGradient(
+          stops: [
+            .init(color: .clear, location: 0),
+            .init(color: .black, location: 0.12),
+            .init(color: .black, location: 0.88),
+            .init(color: .clear, location: 1)
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        )
+      )
+      .task(id: lines.first?.id) {
+        guard let id = highlightedLineID else { return }
+        await Task.yield()
+        proxy.scrollTo(id, anchor: .center)
       }
       .task(id: highlightedLineID) {
         guard let id = highlightedLineID else { return }
         await Task.yield()
-        withAnimation(.easeInOut(duration: 0.25)) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
           proxy.scrollTo(id, anchor: .center)
         }
       }

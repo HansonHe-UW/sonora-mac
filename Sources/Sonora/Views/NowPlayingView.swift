@@ -4,6 +4,7 @@ struct NowPlayingView: View {
   var track: Track?
   var lyricsState: LyricsLookupState
   var currentTime: TimeInterval
+  var onSeek: ((TimeInterval) -> Void)? = nil
 
   var body: some View {
     Group {
@@ -11,7 +12,7 @@ struct NowPlayingView: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 28) {
             TrackHeaderView(track: track)
-            LyricsPanelView(state: lyricsState, currentTime: currentTime)
+            LyricsPanelView(state: lyricsState, currentTime: currentTime, onSeek: onSeek)
           }
           .padding(32)
           .frame(maxWidth: 760, alignment: .leading)
