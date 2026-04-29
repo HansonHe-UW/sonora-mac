@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SidebarView: View {
   @ObservedObject var libraryStore: LibraryStore
+  @State private var searchText = ""
 
   var body: some View {
     VStack(spacing: 0) {
@@ -15,11 +16,15 @@ struct SidebarView: View {
         }
 
         Section("Library") {
+          let visible = SidebarView.filterTracks(libraryStore.tracks, query: searchText)
           if libraryStore.tracks.isEmpty {
             Text("No local music imported yet.")
               .foregroundStyle(.secondary)
+          } else if visible.isEmpty {
+            Text(verbatim: "No results for \"\(searchText)\".")
+              .foregroundStyle(.secondary)
           } else {
-            ForEach(libraryStore.tracks) { track in
+            ForEach(visible) { track in
               TrackRow(track: track)
                 .tag(track.id as Track.ID?)
                 .contextMenu {
@@ -41,6 +46,7 @@ struct SidebarView: View {
         }
       }
       .listStyle(.sidebar)
+      .searchable(text: $searchText, placement: .sidebar, prompt: "Search Library")
       .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
 
       Divider()
@@ -66,6 +72,17 @@ struct SidebarView: View {
         .help("Remove selected track")
       }
       .padding(12)
+    }
+  }
+
+  nonisolated static func filterTracks(_ tracks: [Track], query: String) -> [Track] {
+    let trimmed = query.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return tracks }
+    let q = trimmed.lowercased()
+    return tracks.filter {
+      $0.title.lowercased().contains(q) ||
+      $0.artist.lowercased().contains(q) ||
+      ($0.album?.lowercased().contains(q) ?? false)
     }
   }
 }
