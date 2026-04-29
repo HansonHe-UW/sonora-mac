@@ -6,6 +6,7 @@ struct ContentView: View {
   @StateObject private var lyricsService = LyricsService()
   @StateObject private var artworkService = ArtworkService()
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
+  @AppStorage("defaultLyricsOffset") private var defaultLyricsOffset = 0.0
 
   var body: some View {
     VStack(spacing: 0) {
@@ -16,9 +17,11 @@ struct ContentView: View {
           track: playerCore.currentTrack,
           lyricsState: lyricsService.state,
           currentTime: playerCore.currentTime,
+          lyricsOffset: defaultLyricsOffset,
           onSeek: { time in
             guard let duration = playerCore.currentTrack?.duration, duration > 0 else { return }
-            playerCore.seek(to: time / duration)
+            let adjustedTime = LyricsTiming.seekTime(forLyricTime: time, offset: defaultLyricsOffset)
+            playerCore.seek(to: adjustedTime / duration)
           },
           onReloadLyrics: {
             lyricsService.reloadLyrics(for: playerCore.currentTrack)

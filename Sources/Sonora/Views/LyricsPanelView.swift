@@ -3,6 +3,7 @@ import SwiftUI
 struct LyricsPanelView: View {
   var state: LyricsLookupState
   var currentTime: TimeInterval
+  var lyricsOffset: TimeInterval = 0
   var onSeek: ((TimeInterval) -> Void)? = nil
   var onReload: (() -> Void)? = nil
   var onSwitchSource: ((String) -> Void)? = nil
@@ -36,7 +37,13 @@ struct LyricsPanelView: View {
         ProgressView(message)
 
       case .ready(let result):
-        LyricsResultView(result: result, currentTime: currentTime, onSeek: onSeek, onSwitchSource: onSwitchSource)
+        LyricsResultView(
+          result: result,
+          currentTime: currentTime,
+          lyricsOffset: lyricsOffset,
+          onSeek: onSeek,
+          onSwitchSource: onSwitchSource
+        )
 
       case .unavailable(let reason):
         ContentUnavailableView(
@@ -67,6 +74,7 @@ struct LyricsPanelView: View {
 private struct LyricsResultView: View {
   var result: LyricsResult
   var currentTime: TimeInterval
+  var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)?
   var onSwitchSource: ((String) -> Void)?
 
@@ -83,7 +91,7 @@ private struct LyricsResultView: View {
             .padding(.bottom, 64)
         }
       case .synced(let lines):
-        SyncedLyricsView(lines: lines, currentTime: currentTime, onSeek: onSeek)
+        SyncedLyricsView(lines: lines, currentTime: currentTime, lyricsOffset: lyricsOffset, onSeek: onSeek)
       }
 
       VStack(alignment: .leading, spacing: 8) {
@@ -121,10 +129,12 @@ private struct LyricsResultView: View {
 private struct SyncedLyricsView: View {
   var lines: [LyricsLine]
   var currentTime: TimeInterval
+  var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)?
 
   private var highlightedLineID: LyricsLine.ID? {
-    lines.last { $0.time <= currentTime }?.id ?? lines.first?.id
+    let adjustedCurrentTime = LyricsTiming.adjustedCurrentTime(currentTime, offset: lyricsOffset)
+    return lines.last { $0.time <= adjustedCurrentTime }?.id ?? lines.first?.id
   }
 
   var body: some View {

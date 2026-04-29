@@ -136,18 +136,6 @@ final class LyricsService: ObservableObject {
     return defaults.bool(forKey: "autoDownloadLyrics")
   }
 
-
-
-  private var experimentalProviderIfConfigured: ExperimentalLyricsProxyProvider? {
-    let defaults = UserDefaults.standard
-    let enabled = defaults.object(forKey: "experimentalLyricsProxyEnabled") as? Bool ?? false
-    guard enabled else { return nil }
-
-    let urlString = defaults.string(forKey: "experimentalLyricsProxyBaseURL")?.trimmedForMetadata ?? ""
-    guard let url = URL(string: urlString), !urlString.isEmpty else { return nil }
-    return ExperimentalLyricsProxyProvider(baseURL: url)
-  }
-
   private func bestCandidate(
     from provider: LyricsProvider,
     identity: NormalizedTrackIdentity

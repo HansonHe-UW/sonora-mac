@@ -4,6 +4,7 @@ struct NowPlayingView: View {
   var track: Track?
   var lyricsState: LyricsLookupState
   var currentTime: TimeInterval
+  var lyricsOffset: TimeInterval = 0
   var onSeek: ((TimeInterval) -> Void)? = nil
   var onReloadLyrics: (() -> Void)? = nil
   var onSwitchSource: ((String) -> Void)? = nil
@@ -13,7 +14,14 @@ struct NowPlayingView: View {
       if let track {
         VStack(alignment: .leading, spacing: 28) {
           TrackHeaderView(track: track)
-          LyricsPanelView(state: lyricsState, currentTime: currentTime, onSeek: onSeek, onReload: onReloadLyrics, onSwitchSource: onSwitchSource)
+          LyricsPanelView(
+            state: lyricsState,
+            currentTime: currentTime,
+            lyricsOffset: lyricsOffset,
+            onSeek: onSeek,
+            onReload: onReloadLyrics,
+            onSwitchSource: onSwitchSource
+          )
         }
         .padding(32)
         .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)

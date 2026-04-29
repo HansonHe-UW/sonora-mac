@@ -1,6 +1,8 @@
 import Foundation
 
 struct iTunesArtworkProvider: ArtworkProvider {
+  private static let minimumArtworkMatchScore = 1.0
+
   private let session: URLSession
 
   init(session: URLSession = .shared) {
@@ -91,9 +93,8 @@ struct iTunesArtworkProvider: ArtworkProvider {
       }
     }
 
-    // Fall back to first result if nothing scored well
-    let chosen = bestResult ?? results.first
-    return chosen?["artworkUrl100"] as? String
+    guard bestScore >= Self.minimumArtworkMatchScore else { return nil }
+    return bestResult?["artworkUrl100"] as? String
   }
 
   /// Lowercases and converts Traditional Chinese to Simplified for comparison.
