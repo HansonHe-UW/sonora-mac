@@ -132,24 +132,27 @@ private struct SyncedLyricsView: View {
   var lyricsOffset: TimeInterval
   var onSeek: ((TimeInterval) -> Void)?
 
-  private var highlightedLineID: LyricsLine.ID? {
-    let adjustedCurrentTime = LyricsTiming.adjustedCurrentTime(currentTime, offset: lyricsOffset)
-    return lines.last { $0.time <= adjustedCurrentTime }?.id ?? lines.first?.id
+  @State private var scrollPolicy = SyncedLyricsScrollPolicy()
+
+  private var scrollState: SyncedLyricsScrollState {
+    SyncedLyricsScrollState(lines: lines, currentTime: currentTime, lyricsOffset: lyricsOffset)
   }
 
   var body: some View {
+    let activeLineID = scrollState.activeLineID
+
     ScrollViewReader { proxy in
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
           ForEach(lines) { line in
-            let isActive = line.id == highlightedLineID
+            let isActive = line.id == activeLineID
             Text(line.text)
               .id(line.id)
               .font(isActive ? .title2.weight(.bold) : .title3.weight(.regular))
               .foregroundStyle(.primary)
               .opacity(isActive ? 1.0 : 0.35)
               .scaleEffect(isActive ? 1.0 : 0.97, anchor: .leading)
-              .animation(.spring(response: 0.45, dampingFraction: 0.82), value: highlightedLineID)
+              .animation(.spring(response: 0.45, dampingFraction: 0.82), value: activeLineID)
               .onTapGesture { onSeek?(line.time) }
               .contentShape(Rectangle())
           }
@@ -171,16 +174,18 @@ private struct SyncedLyricsView: View {
           endPoint: .bottom
         )
       )
-      .task(id: lines.first?.id) {
-        guard let id = highlightedLineID else { return }
+      .task(id: scrollState) {
         await Task.yield()
-        proxy.scrollTo(id, anchor: .center)
-      }
-      .task(id: highlightedLineID) {
-        guard let id = highlightedLineID else { return }
-        await Task.yield()
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+
+        switch scrollPolicy.update(to: scrollState) {
+        case .initialPlacement(let id):
           proxy.scrollTo(id, anchor: .center)
+        case .activeLineChange(let id):
+          withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+            proxy.scrollTo(id, anchor: .center)
+          }
+        case nil:
+          break
         }
       }
     }
