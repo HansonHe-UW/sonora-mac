@@ -4,6 +4,8 @@ struct SettingsView: View {
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
   @AppStorage("defaultLyricsOffset") private var defaultLyricsOffset = 0.0
   @AppStorage("musixmatchAPIKey") private var musixmatchAPIKey = ""
+  @AppStorage("experimentalLyricsProxyEnabled") private var experimentalLyricsProxyEnabled = false
+  @AppStorage("experimentalLyricsProxyBaseURL") private var experimentalLyricsProxyBaseURL = ""
 
   var body: some View {
     Form {
@@ -22,8 +24,26 @@ struct SettingsView: View {
       }
 
       Section("Providers") {
+        Text("LRCLIB is enabled by default and does not require an API key.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+
+        Toggle("Enable experimental reverse lyrics proxy", isOn: $experimentalLyricsProxyEnabled)
+
+        TextField("Experimental proxy base URL", text: $experimentalLyricsProxyBaseURL)
+          .textFieldStyle(.roundedBorder)
+          .disabled(!experimentalLyricsProxyEnabled)
+
+        Text("Use this only for personal experiments. Sonora expects a compatible endpoint such as `/v2/musixmatch/lyrics?title=...&artist=...` on the configured base URL.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+
         SecureField("Musixmatch API key", text: $musixmatchAPIKey)
           .textFieldStyle(.roundedBorder)
+
+        Text("Musixmatch is optional. If configured, Sonora uses it as a fallback lyrics source and as an artwork enhancement source when matched metadata exposes cover art.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
       }
     }
     .formStyle(.grouped)

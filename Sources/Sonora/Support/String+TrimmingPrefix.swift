@@ -5,4 +5,8 @@ extension String {
     guard hasPrefix(prefix) else { return self }
     return String(dropFirst(prefix.count))
   }
+
+  var trimmedForMetadata: String {
+    trimmingCharacters(in: .whitespacesAndNewlines)
+  }
 }

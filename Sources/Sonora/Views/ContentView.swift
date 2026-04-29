@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct ContentView: View {
-  @StateObject private var libraryStore = LibraryStore.preview()
+  @StateObject private var libraryStore = LibraryStore()
   @StateObject private var playerCore = PlayerCore()
   @StateObject private var lyricsService = LyricsService()
+  @AppStorage("musixmatchAPIKey") private var musixmatchAPIKey = ""
+  @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
 
   var body: some View {
     VStack(spacing: 0) {
@@ -11,7 +13,7 @@ struct ContentView: View {
         SidebarView(libraryStore: libraryStore)
       } detail: {
         NowPlayingView(
-          track: libraryStore.selectedTrack,
+          track: playerCore.currentTrack,
           lyricsState: lyricsService.state,
           currentTime: playerCore.currentTime
         )
@@ -22,12 +24,48 @@ struct ContentView: View {
       PlayerBarView(playerCore: playerCore)
     }
     .onAppear {
+      playerCore.updateQueue(libraryStore.tracks)
       playerCore.load(libraryStore.selectedTrack)
-      lyricsService.loadPlaceholder(for: libraryStore.selectedTrack)
+      lyricsService.loadLyrics(for: playerCore.currentTrack)
+    }
+    .onChange(of: libraryStore.tracks) { _, tracks in
+      playerCore.updateQueue(tracks)
     }
     .onChange(of: libraryStore.selectedTrackID) { _, _ in
-      playerCore.load(libraryStore.selectedTrack)
-      lyricsService.loadPlaceholder(for: libraryStore.selectedTrack)
+      if playerCore.currentTrack?.id != libraryStore.selectedTrackID {
+        playerCore.load(libraryStore.selectedTrack)
+      }
+    }
+    .onChange(of: playerCore.currentTrack?.id) { _, trackID in
+      if libraryStore.selectedTrackID != trackID {
+        libraryStore.selectedTrackID = trackID
+      }
+
+      lyricsService.loadLyrics(for: playerCore.currentTrack)
+    }
+    .onChange(of: musixmatchAPIKey) { _, _ in
+      lyricsService.loadLyrics(for: playerCore.currentTrack)
+    }
+    .onChange(of: autoDownloadLyrics) { _, _ in
+      lyricsService.loadLyrics(for: playerCore.currentTrack)
+    }
+    .onChange(of: lyricsService.latestArtworkSuggestion) { _, suggestion in
+      guard let suggestion else { return }
+      libraryStore.updateArtwork(for: suggestion.trackID, artworkData: suggestion.artworkData)
+    }
+    .onDeleteCommand {
+      libraryStore.removeSelectedTrack()
+    }
+    .sheet(
+      item: Binding(
+        get: { libraryStore.activeImportSummary },
+        set: { libraryStore.activeImportSummary = $0 }
+      )
+    ) { summary in
+      ImportSummaryView(
+        summary: summary,
+        dismiss: libraryStore.dismissImportSummary
+      )
     }
   }
 }

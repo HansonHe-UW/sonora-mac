@@ -22,17 +22,51 @@ struct LyricsPanelView: View {
         Text("Lyrics will appear here after local cache, LRC, or online provider lookup.")
           .foregroundStyle(.secondary)
 
-      case .ready(.plain(let text)):
+      case .loading(let message):
+        ProgressView(message)
+
+      case .ready(let result):
+        LyricsResultView(result: result, currentTime: currentTime)
+
+      case .unavailable(let reason):
+        ContentUnavailableView("Lyrics Unavailable", systemImage: "text.quote", description: Text(reason))
+      }
+    }
+  }
+}
+
+private struct LyricsResultView: View {
+  var result: LyricsResult
+  var currentTime: TimeInterval
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 18) {
+      switch result.content {
+      case .plain(let text):
         Text(text)
           .font(.title3)
           .foregroundStyle(.primary)
           .textSelection(.enabled)
-
-      case .ready(.synced(let lines)):
+      case .synced(let lines):
         SyncedLyricsView(lines: lines, currentTime: currentTime)
+      }
 
-      case .unavailable(let reason):
-        ContentUnavailableView("Lyrics Unavailable", systemImage: "text.quote", description: Text(reason))
+      VStack(alignment: .leading, spacing: 8) {
+        Text("Source: \(result.attribution.displayName)")
+          .font(.caption.weight(.medium))
+          .foregroundStyle(.secondary)
+
+        if let copyrightText = result.attribution.copyrightText, !copyrightText.isEmpty {
+          Text(copyrightText)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+
+        if let backlinkURLString = result.attribution.backlinkURLString,
+           let backlinkURL = URL(string: backlinkURLString) {
+          Link("Open lyrics source", destination: backlinkURL)
+            .font(.caption)
+        }
       }
     }
   }

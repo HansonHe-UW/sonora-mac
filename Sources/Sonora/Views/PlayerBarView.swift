@@ -5,12 +5,20 @@ struct PlayerBarView: View {
 
   var body: some View {
     HStack(spacing: 18) {
+      TrackArtworkView(
+        artworkData: playerCore.currentTrack?.artworkData,
+        cornerRadius: 6,
+        iconSize: 18
+      )
+      .frame(width: 42, height: 42)
+
       Button {
         playerCore.playPrevious()
       } label: {
         Image(systemName: "backward.fill")
       }
       .buttonStyle(.borderless)
+      .disabled(!playerCore.canPlayPrevious)
       .help("Previous track")
 
       Button {
@@ -29,6 +37,7 @@ struct PlayerBarView: View {
         Image(systemName: "forward.fill")
       }
       .buttonStyle(.borderless)
+      .disabled(!playerCore.canPlayNext)
       .help("Next track")
 
       VStack(alignment: .leading, spacing: 6) {

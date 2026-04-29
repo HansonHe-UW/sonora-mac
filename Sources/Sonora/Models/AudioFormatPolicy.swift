@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 enum AudioFormatPolicy {
   static let supportedExtensions: Set<String> = [
@@ -36,5 +37,11 @@ enum AudioFormatPolicy {
       .trimmingCharacters(in: .whitespacesAndNewlines)
       .trimmingPrefix(".")
       .lowercased()
+  }
+
+  static var supportedContentTypes: [UTType] {
+    supportedExtensions.compactMap { fileExtension in
+      UTType(filenameExtension: fileExtension, conformingTo: .audio)
+    }
   }
 }

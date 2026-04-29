@@ -30,14 +30,12 @@ private struct TrackHeaderView: View {
 
   var body: some View {
     HStack(alignment: .center, spacing: 20) {
-      RoundedRectangle(cornerRadius: 8)
-        .fill(.quaternary)
+      TrackArtworkView(
+        artworkData: track.artworkData,
+        cornerRadius: 8,
+        iconSize: 38
+      )
         .frame(width: 112, height: 112)
-        .overlay {
-          Image(systemName: "music.note")
-            .font(.system(size: 38, weight: .medium))
-            .foregroundStyle(.secondary)
-        }
 
       VStack(alignment: .leading, spacing: 8) {
         Text(track.title)
@@ -65,7 +63,7 @@ private struct EmptyLibraryView: View {
     ContentUnavailableView {
       Label("No Track Selected", systemImage: "music.note.list")
     } description: {
-      Text("Import local music to start building your Sonora library.")
+      Text("Import local music to start building your Sonora library. Sonora will read metadata from supported files and prepare them for playback and lyric matching.")
     }
   }
 }
