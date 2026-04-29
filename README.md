@@ -65,6 +65,33 @@ The generated installer disk image will be available at:
 dist/Sonora.dmg
 ```
 
+## Testing Build Installation
+
+The current GitHub release DMG is intended for testing. It is not yet code signed or notarized, so macOS may block it after browser download.
+
+If Sonora opens normally after mounting the DMG, drag `Sonora.app` into `Applications` and launch it.
+
+If macOS blocks the downloaded DMG or app:
+
+1. Try right-clicking the DMG or app and choose `Open`.
+2. If needed, allow it from `System Settings > Privacy & Security`.
+3. If Gatekeeper still blocks it, remove the quarantine attribute manually:
+
+```bash
+xattr -dr com.apple.quarantine ~/Downloads/Sonora.dmg
+```
+
+Or, after dragging the app into `Applications`:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Sonora.app
+```
+
+Sonora currently targets:
+
+- Apple Silicon Macs
+- macOS 14 or later
+
 Verify the app launches (dry run):
 
 ```bash
