@@ -229,7 +229,7 @@ struct LRCLIBLyricsResponse: Decodable {
   let trackName: String
   let artistName: String
   let albumName: String?
-  let duration: Int
+  let duration: Double
   let plainLyrics: String?
   let syncedLyrics: String?
 
