@@ -53,6 +53,18 @@ Build and run the macOS app bundle directly:
 ./script/build_and_run.sh
 ```
 
+Build a shareable `.dmg` package:
+
+```bash
+./script/package_dmg.sh
+```
+
+The generated installer disk image will be available at:
+
+```text
+dist/Sonora.dmg
+```
+
 Verify the app launches (dry run):
 
 ```bash
