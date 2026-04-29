@@ -4,6 +4,7 @@ struct ContentView: View {
   @StateObject private var libraryStore = LibraryStore()
   @StateObject private var playerCore = PlayerCore()
   @StateObject private var lyricsService = LyricsService()
+  @StateObject private var artworkService = ArtworkService()
   @AppStorage("musixmatchAPIKey") private var musixmatchAPIKey = ""
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
 
@@ -27,6 +28,7 @@ struct ContentView: View {
       playerCore.updateQueue(libraryStore.tracks)
       playerCore.load(libraryStore.selectedTrack)
       lyricsService.loadLyrics(for: playerCore.currentTrack)
+      Task { await artworkService.fetchArtwork(for: playerCore.currentTrack) }
     }
     .onChange(of: libraryStore.tracks) { _, tracks in
       playerCore.updateQueue(tracks)
@@ -42,6 +44,7 @@ struct ContentView: View {
       }
 
       lyricsService.loadLyrics(for: playerCore.currentTrack)
+      Task { await artworkService.fetchArtwork(for: playerCore.currentTrack) }
     }
     .onChange(of: musixmatchAPIKey) { _, _ in
       lyricsService.loadLyrics(for: playerCore.currentTrack)
@@ -49,7 +52,7 @@ struct ContentView: View {
     .onChange(of: autoDownloadLyrics) { _, _ in
       lyricsService.loadLyrics(for: playerCore.currentTrack)
     }
-    .onChange(of: lyricsService.latestArtworkSuggestion) { _, suggestion in
+    .onChange(of: artworkService.latestArtworkSuggestion) { _, suggestion in
       guard let suggestion else { return }
       libraryStore.updateArtwork(for: suggestion.trackID, artworkData: suggestion.artworkData)
     }

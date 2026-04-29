@@ -375,7 +375,7 @@ final class PlayerCore: ObservableObject {
       info[MPNowPlayingInfoPropertyPlaybackProgress] = min(max(currentTime / duration, 0), 1)
     }
 
-    if let artwork = mediaArtwork(from: currentTrack.artworkData) {
+    if let artwork = Self.mediaArtwork(from: currentTrack.artworkData) {
       info[MPMediaItemPropertyArtwork] = artwork
     }
 
@@ -399,7 +399,7 @@ final class PlayerCore: ObservableObject {
     }
   }
 
-  private func mediaArtwork(from data: Data?) -> MPMediaItemArtwork? {
+  nonisolated private static func mediaArtwork(from data: Data?) -> MPMediaItemArtwork? {
     guard let data, let image = NSImage(data: data) else { return nil }
     return MPMediaItemArtwork(boundsSize: image.size) { _ in
       image

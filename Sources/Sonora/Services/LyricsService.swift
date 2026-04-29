@@ -11,7 +11,6 @@ protocol LyricsProvider: Sendable {
 @MainActor
 final class LyricsService: ObservableObject {
   @Published private(set) var state: LyricsLookupState = .empty
-  @Published private(set) var latestArtworkSuggestion: ArtworkSuggestion?
 
   private let cacheStore: LyricsCacheStore
   private let localLRCProvider: LocalLRCProvider
@@ -31,7 +30,6 @@ final class LyricsService: ObservableObject {
 
   func loadLyrics(for track: Track?) {
     loadTask?.cancel()
-    latestArtworkSuggestion = nil
     activeRequestID = UUID()
     let requestID = activeRequestID
 
@@ -53,7 +51,6 @@ final class LyricsService: ObservableObject {
     if let cached = cacheStore.load(for: track.fileFingerprint) {
       guard isActive(requestID) else { return }
       state = .ready(cached)
-      await fetchArtworkIfNeeded(for: track, result: cached)
       trackLyricsViewIfNeeded(from: cached)
       return
     }
@@ -80,29 +77,6 @@ final class LyricsService: ObservableObject {
         try? cacheStore.save(result, for: track.fileFingerprint)
         state = .ready(result)
 
-        if let experimentalProvider = experimentalProviderIfConfigured,
-           let experimentalCandidate = try await bestCandidate(from: experimentalProvider, identity: normalizedIdentity) {
-          let experimentalResult = try await experimentalProvider.fetchLyrics(for: experimentalCandidate)
-          guard isActive(requestID) else { return }
-          let merged = LyricsResult(
-            content: result.content,
-            attribution: result.attribution,
-            artworkURLString: experimentalResult.artworkURLString ?? result.artworkURLString
-          )
-          await fetchArtworkIfNeeded(for: track, result: merged)
-        }
-
-        if let musixmatchProvider = musixmatchProviderIfConfigured,
-           let musixmatchCandidate = try await bestCandidate(from: musixmatchProvider, identity: normalizedIdentity) {
-          guard isActive(requestID) else { return }
-          let artworkResult = LyricsResult(
-            content: result.content,
-            attribution: result.attribution,
-            artworkURLString: musixmatchCandidate.artworkURLString
-          )
-          await fetchArtworkIfNeeded(for: track, result: artworkResult)
-        }
-
         return
       }
 
@@ -112,7 +86,6 @@ final class LyricsService: ObservableObject {
         guard isActive(requestID) else { return }
         try? cacheStore.save(result, for: track.fileFingerprint)
         state = .ready(result)
-        await fetchArtworkIfNeeded(for: track, result: result)
         trackLyricsViewIfNeeded(from: result)
         return
       }
@@ -135,23 +108,6 @@ final class LyricsService: ObservableObject {
 
     let request = URLRequest(url: trackingURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
     URLSession.shared.dataTask(with: request).resume()
-  }
-
-  private func fetchArtworkIfNeeded(for track: Track, result: LyricsResult) async {
-    guard track.artworkData == nil,
-          let artworkURLString = result.artworkURLString,
-          let artworkURL = URL(string: artworkURLString) else {
-      return
-    }
-
-    guard let (data, response) = try? await URLSession.shared.data(from: artworkURL),
-          let httpResponse = response as? HTTPURLResponse,
-          httpResponse.statusCode == 200,
-          !data.isEmpty else {
-      return
-    }
-
-    latestArtworkSuggestion = ArtworkSuggestion(trackID: track.id, artworkData: data)
   }
 
   private var isAutoDownloadEnabled: Bool {

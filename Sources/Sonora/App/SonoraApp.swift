@@ -23,4 +23,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
   }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+    guard !flag else { return false }
+
+    if let window = sender.windows.first {
+      window.makeKeyAndOrderFront(nil)
+      sender.activate(ignoringOtherApps: true)
+      return true
+    }
+
+    return false
+  }
 }
