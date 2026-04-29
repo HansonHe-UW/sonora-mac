@@ -4,17 +4,17 @@ import Testing
 
 struct NeteaseProviderTests {
   @Test
-  func decodesSearchResponse() throws {
+  func decodesSuggestResponse() throws {
     let json = """
     {
       "result": {
         "songs": [
           {
-            "id": 123456,
-            "name": "望春風",
+            "id": 2690548987,
+            "name": "让爱再继续",
             "artists": [{"name": "陶喆"}],
-            "album": {"name": "黑色柳丁"},
-            "duration": 213470
+            "album": {"name": "STUPID POP SONGS"},
+            "duration": 252669
           }
         ]
       },
@@ -22,13 +22,13 @@ struct NeteaseProviderTests {
     }
     """.data(using: .utf8)!
 
-    let response = try JSONDecoder().decode(NeteaseSearchResponse.self, from: json)
-    let song = try #require(response.result.songs.first)
-    #expect(song.id == 123456)
-    #expect(song.name == "望春風")
+    let response = try JSONDecoder().decode(NeteaseSuggestResponse.self, from: json)
+    let song = try #require(response.result.songs?.first)
+    #expect(song.id == 2690548987)
+    #expect(song.name == "让爱再继续")
     #expect(song.artists.first?.name == "陶喆")
-    #expect(song.album?.name == "黑色柳丁")
-    #expect(song.duration == 213470)
+    #expect(song.album?.name == "STUPID POP SONGS")
+    #expect(song.duration == 252669)
   }
 
   @Test
@@ -58,26 +58,50 @@ struct NeteaseProviderTests {
 
   @Test
   func convertsDurationMillisecondsToSeconds() {
-    let durationMs = 213470
+    let durationMs = 252669
     let seconds = TimeInterval(durationMs) / 1000.0
-    #expect(abs(seconds - 213.47) < 0.01)
+    #expect(abs(seconds - 252.669) < 0.01)
   }
 
   @Test
   func searchBuildsCandidateFromSong() throws {
-    let song = NeteaseSearchResponse.Song(
-      id: 999,
-      name: "Airport",
+    let song = NeteaseSuggestResponse.Song(
+      id: 2690548987,
+      name: "让爱再继续",
       artists: [.init(name: "陶喆")],
-      album: .init(name: "黑色柳丁"),
-      duration: 240000
+      album: .init(name: "STUPID POP SONGS"),
+      duration: 252669
     )
-    let candidate = NeteaseProvider.makeCandidate(from: song)
-    #expect(candidate.id == "999")
-    #expect(candidate.title == "Airport")
+    let identity = NormalizedTrackIdentity(title: "讓愛再繼續", artist: "陶喆", duration: 253.0)
+    let candidate = try #require(NeteaseProvider.makeCandidate(from: song, identity: identity))
+    #expect(candidate.id == "2690548987")
+    #expect(candidate.title == "让爱再继续")
     #expect(candidate.artist == "陶喆")
-    #expect(candidate.album == "黑色柳丁")
-    #expect(abs(candidate.duration! - 240.0) < 0.01)
+    #expect(candidate.album == "STUPID POP SONGS")
     #expect(candidate.providerName == "netease")
+    #expect(candidate.confidence >= 0.5)
+  }
+
+  @Test
+  func traditionalChineseMatchesSimplified() throws {
+    let song = NeteaseSuggestResponse.Song(
+      id: 999,
+      name: "半晴天",
+      artists: [.init(name: "陶喆")],
+      album: .init(name: "STUPID POP SONGS"),
+      duration: 294773
+    )
+    // User's metadata uses traditional characters
+    let identity = NormalizedTrackIdentity(title: "半晴天", artist: "陶喆", duration: 295.0)
+    let candidate = try #require(NeteaseProvider.makeCandidate(from: song, identity: identity))
+    #expect(candidate.confidence >= 0.5)
+  }
+
+  @Test
+  func toSimplifiedChineseConvertsTraditional() {
+    #expect(NeteaseProvider.toSimplifiedChinese("讓愛再繼續") == "让爱再继续")
+    #expect(NeteaseProvider.toSimplifiedChinese("陶喆") == "陶喆")
+    #expect(NeteaseProvider.toSimplifiedChinese("Moonchild") == "Moonchild")
+    #expect(NeteaseProvider.toSimplifiedChinese("微塵") == "微尘")
   }
 }

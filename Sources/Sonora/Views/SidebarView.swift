@@ -3,6 +3,7 @@ import SwiftUI
 struct SidebarView: View {
   @ObservedObject var libraryStore: LibraryStore
   @State private var searchText = ""
+  @State private var showClearConfirmation = false
 
   var body: some View {
     VStack(spacing: 0) {
@@ -70,8 +71,25 @@ struct SidebarView: View {
         .buttonStyle(.borderless)
         .disabled(libraryStore.selectedTrackID == nil)
         .help("Remove selected track")
+
+        Button(role: .destructive) {
+          showClearConfirmation = true
+        } label: {
+          Image(systemName: "trash.slash")
+        }
+        .buttonStyle(.borderless)
+        .disabled(libraryStore.tracks.isEmpty)
+        .help("Clear all tracks")
       }
       .padding(12)
+    }
+    .alert("Clear Library", isPresented: $showClearConfirmation) {
+      Button("Clear All", role: .destructive) {
+        libraryStore.removeAllTracks()
+      }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("This will remove all \(libraryStore.tracks.count) tracks from your library. This cannot be undone.")
     }
   }
 

@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
   @AppStorage("defaultLyricsOffset") private var defaultLyricsOffset = 0.0
-  @AppStorage("musixmatchAPIKey") private var musixmatchAPIKey = ""
   @AppStorage("experimentalLyricsProxyEnabled") private var experimentalLyricsProxyEnabled = false
   @AppStorage("experimentalLyricsProxyBaseURL") private var experimentalLyricsProxyBaseURL = ""
 
@@ -35,13 +34,6 @@ struct SettingsView: View {
           .disabled(!experimentalLyricsProxyEnabled)
 
         Text("Use this only for personal experiments. Sonora expects a compatible endpoint such as `/v2/musixmatch/lyrics?title=...&artist=...` on the configured base URL.")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-
-        SecureField("Musixmatch API key", text: $musixmatchAPIKey)
-          .textFieldStyle(.roundedBorder)
-
-        Text("Musixmatch is optional. If configured, Sonora uses it as a fallback lyrics source and as an artwork enhancement source when matched metadata exposes cover art.")
           .font(.caption)
           .foregroundStyle(.secondary)
       }

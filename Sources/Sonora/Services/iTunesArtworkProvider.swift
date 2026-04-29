@@ -15,7 +15,7 @@ struct iTunesArtworkProvider: ArtworkProvider {
       return nil
     }
 
-    guard let artworkURLString = parseArtworkURLString(from: data) else { return nil }
+    guard let artworkURLString = bestArtworkURLString(from: data, identity: identity) else { return nil }
 
     let highResURLString = artworkURLString
       .replacingOccurrences(of: "100x100bb", with: "600x600bb")
@@ -42,18 +42,64 @@ struct iTunesArtworkProvider: ArtworkProvider {
     components?.queryItems = [
       URLQueryItem(name: "term", value: term),
       URLQueryItem(name: "entity", value: "album"),
-      URLQueryItem(name: "limit", value: "5")
+      URLQueryItem(name: "limit", value: "10")
     ]
     return components?.url
   }
 
-  private func parseArtworkURLString(from data: Data) -> String? {
+  /// Picks the best matching album artwork from iTunes results by comparing
+  /// album name and artist against the track's metadata.
+  private func bestArtworkURLString(from data: Data, identity: NormalizedTrackIdentity) -> String? {
     guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let results = json["results"] as? [[String: Any]],
-          let first = results.first,
-          let artworkURLString = first["artworkUrl100"] as? String else {
+          let results = json["results"] as? [[String: Any]] else {
       return nil
     }
-    return artworkURLString
+
+    guard !results.isEmpty else { return nil }
+
+    let expectedAlbum = normalize(identity.album ?? identity.title)
+    let expectedArtist = normalize(identity.artist)
+
+    var bestResult: [String: Any]?
+    var bestScore = -1.0
+
+    for result in results {
+      guard result["artworkUrl100"] is String else { continue }
+
+      var score = 0.0
+      if let collectionName = result["collectionName"] as? String {
+        let normalizedCollection = normalize(collectionName)
+        if normalizedCollection == expectedAlbum {
+          score += 2.0
+        } else if normalizedCollection.contains(expectedAlbum) || expectedAlbum.contains(normalizedCollection) {
+          score += 1.0
+        }
+      }
+
+      if let artistName = result["artistName"] as? String {
+        let normalizedArtist = normalize(artistName)
+        if normalizedArtist == expectedArtist {
+          score += 1.0
+        } else if normalizedArtist.contains(expectedArtist) || expectedArtist.contains(normalizedArtist) {
+          score += 0.5
+        }
+      }
+
+      if score > bestScore {
+        bestScore = score
+        bestResult = result
+      }
+    }
+
+    // Fall back to first result if nothing scored well
+    let chosen = bestResult ?? results.first
+    return chosen?["artworkUrl100"] as? String
+  }
+
+  /// Lowercases and converts Traditional Chinese to Simplified for comparison.
+  private func normalize(_ text: String) -> String {
+    let mutable = NSMutableString(string: text.lowercased())
+    CFStringTransform(mutable, nil, "Traditional-Simplified" as CFString, false)
+    return mutable as String
   }
 }

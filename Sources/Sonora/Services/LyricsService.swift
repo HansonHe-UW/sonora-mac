@@ -31,7 +31,7 @@ final class LyricsService: ObservableObject {
     self.neteaseProvider = neteaseProvider
   }
 
-  func loadLyrics(for track: Track?) {
+  func loadLyrics(for track: Track?, ignoring providers: Set<String> = []) {
     loadTask?.cancel()
     activeRequestID = UUID()
     let requestID = activeRequestID
@@ -43,11 +43,17 @@ final class LyricsService: ObservableObject {
 
     loadTask = Task { [weak self] in
       guard let self else { return }
-      await self.loadLyricsPipeline(for: track, requestID: requestID)
+      await self.loadLyricsPipeline(for: track, requestID: requestID, ignoring: providers)
     }
   }
 
-  private func loadLyricsPipeline(for track: Track, requestID: UUID) async {
+  func reloadLyrics(for track: Track?, ignoring providers: Set<String> = []) {
+    guard let track else { return }
+    cacheStore.remove(for: track.fileFingerprint)
+    loadLyrics(for: track, ignoring: providers)
+  }
+
+  private func loadLyricsPipeline(for track: Track, requestID: UUID, ignoring providers: Set<String>) async {
     guard isActive(requestID) else { return }
     state = .loading("Matching lyrics for \(track.title)...")
 
@@ -74,17 +80,9 @@ final class LyricsService: ObservableObject {
     let normalizedIdentity = TrackMetadataNormalizer.normalize(track.identity)
 
     do {
-      if let lrclibCandidate = try await bestCandidate(from: lrclibProvider, identity: normalizedIdentity) {
-        let result = try await lrclibProvider.fetchLyrics(for: lrclibCandidate)
-        guard isActive(requestID) else { return }
-        try? cacheStore.save(result, for: track.fileFingerprint)
-        state = .ready(result)
-
-        return
-      }
-
       do {
-        if let neteaseCandidate = try await bestCandidate(from: neteaseProvider, identity: normalizedIdentity) {
+        if !providers.contains(neteaseProvider.name),
+           let neteaseCandidate = try await bestCandidate(from: neteaseProvider, identity: normalizedIdentity) {
           let result = try await neteaseProvider.fetchLyrics(for: neteaseCandidate)
           guard isActive(requestID) else { return }
           try? cacheStore.save(result, for: track.fileFingerprint)
@@ -94,16 +92,15 @@ final class LyricsService: ObservableObject {
       } catch is CancellationError {
         return
       } catch {
-        // NetEase unavailable, continue to next provider
+        // NetEase unavailable, fall through to LRCLIB
       }
 
-      if let musixmatchProvider = musixmatchProviderIfConfigured,
-         let musixmatchCandidate = try await bestCandidate(from: musixmatchProvider, identity: normalizedIdentity) {
-        let result = try await musixmatchProvider.fetchLyrics(for: musixmatchCandidate)
+      if !providers.contains(lrclibProvider.name),
+         let lrclibCandidate = try await bestCandidate(from: lrclibProvider, identity: normalizedIdentity) {
+        let result = try await lrclibProvider.fetchLyrics(for: lrclibCandidate)
         guard isActive(requestID) else { return }
         try? cacheStore.save(result, for: track.fileFingerprint)
         state = .ready(result)
-        trackLyricsViewIfNeeded(from: result)
         return
       }
 
@@ -139,11 +136,7 @@ final class LyricsService: ObservableObject {
     return defaults.bool(forKey: "autoDownloadLyrics")
   }
 
-  private var musixmatchProviderIfConfigured: MusixmatchProvider? {
-    let apiKey = UserDefaults.standard.string(forKey: "musixmatchAPIKey")?.trimmedForMetadata ?? ""
-    guard !apiKey.isEmpty else { return nil }
-    return MusixmatchProvider(apiKey: apiKey)
-  }
+
 
   private var experimentalProviderIfConfigured: ExperimentalLyricsProxyProvider? {
     let defaults = UserDefaults.standard
@@ -160,7 +153,11 @@ final class LyricsService: ObservableObject {
     identity: NormalizedTrackIdentity
   ) async throws -> LyricsCandidate? {
     let candidates = try await provider.search(identity)
-    return candidates.max(by: { $0.confidence < $1.confidence })
+    let best = candidates.max(by: { $0.confidence < $1.confidence })
+    if let best = best, best.confidence >= 0.5 {
+      return best
+    }
+    return nil
   }
 
   private func isActive(_ requestID: UUID) -> Bool {

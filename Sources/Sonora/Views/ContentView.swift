@@ -5,7 +5,6 @@ struct ContentView: View {
   @StateObject private var playerCore = PlayerCore()
   @StateObject private var lyricsService = LyricsService()
   @StateObject private var artworkService = ArtworkService()
-  @AppStorage("musixmatchAPIKey") private var musixmatchAPIKey = ""
   @AppStorage("autoDownloadLyrics") private var autoDownloadLyrics = true
 
   var body: some View {
@@ -20,6 +19,12 @@ struct ContentView: View {
           onSeek: { time in
             guard let duration = playerCore.currentTrack?.duration, duration > 0 else { return }
             playerCore.seek(to: time / duration)
+          },
+          onReloadLyrics: {
+            lyricsService.reloadLyrics(for: playerCore.currentTrack)
+          },
+          onSwitchSource: { providerName in
+            lyricsService.reloadLyrics(for: playerCore.currentTrack, ignoring: [providerName])
           }
         )
       }
@@ -49,9 +54,6 @@ struct ContentView: View {
 
       lyricsService.loadLyrics(for: playerCore.currentTrack)
       Task { await artworkService.fetchArtwork(for: playerCore.currentTrack) }
-    }
-    .onChange(of: musixmatchAPIKey) { _, _ in
-      lyricsService.loadLyrics(for: playerCore.currentTrack)
     }
     .onChange(of: autoDownloadLyrics) { _, _ in
       lyricsService.loadLyrics(for: playerCore.currentTrack)

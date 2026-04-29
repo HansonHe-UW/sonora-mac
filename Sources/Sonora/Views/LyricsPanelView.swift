@@ -4,12 +4,23 @@ struct LyricsPanelView: View {
   var state: LyricsLookupState
   var currentTime: TimeInterval
   var onSeek: ((TimeInterval) -> Void)? = nil
+  var onReload: (() -> Void)? = nil
+  var onSwitchSource: ((String) -> Void)? = nil
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       HStack {
         Text("Lyrics")
           .font(.title2.weight(.semibold))
+
+        if let onReload {
+          Button(action: onReload) {
+            Image(systemName: "arrow.clockwise")
+          }
+          .buttonStyle(.plain)
+          .foregroundStyle(.secondary)
+          .help("Reload lyrics and ignore cache")
+        }
 
         Spacer()
 
@@ -25,7 +36,7 @@ struct LyricsPanelView: View {
         ProgressView(message)
 
       case .ready(let result):
-        LyricsResultView(result: result, currentTime: currentTime, onSeek: onSeek)
+        LyricsResultView(result: result, currentTime: currentTime, onSeek: onSeek, onSwitchSource: onSwitchSource)
 
       case .unavailable(let reason):
         ContentUnavailableView(
@@ -57,23 +68,39 @@ private struct LyricsResultView: View {
   var result: LyricsResult
   var currentTime: TimeInterval
   var onSeek: ((TimeInterval) -> Void)?
+  var onSwitchSource: ((String) -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 18) {
       switch result.content {
       case .plain(let text):
-        Text(text)
-          .font(.title3)
-          .foregroundStyle(.primary)
-          .textSelection(.enabled)
+        ScrollView {
+          Text(text)
+            .font(.title3)
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 64)
+        }
       case .synced(let lines):
         SyncedLyricsView(lines: lines, currentTime: currentTime, onSeek: onSeek)
       }
 
       VStack(alignment: .leading, spacing: 8) {
-        Text("Source: \(result.attribution.displayName)")
-          .font(.caption.weight(.medium))
-          .foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline) {
+          Text("Source: \(result.attribution.displayName)")
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            
+          if let onSwitchSource {
+            Button("Try different source") {
+              onSwitchSource(result.attribution.providerName)
+            }
+            .buttonStyle(.borderless)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Color.accentColor)
+          }
+        }
 
         if let copyrightText = result.attribution.copyrightText, !copyrightText.isEmpty {
           Text(copyrightText)
@@ -147,6 +174,6 @@ private struct SyncedLyricsView: View {
         }
       }
     }
-    .frame(maxHeight: 420)
+    .frame(maxHeight: .infinity)
   }
 }

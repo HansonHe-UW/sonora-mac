@@ -10,16 +10,17 @@ struct NeteaseProvider: LyricsProvider {
   }
 
   func search(_ identity: NormalizedTrackIdentity) async throws -> [LyricsCandidate] {
-    let query = [identity.title, identity.artist].compactMap { $0 }.joined(separator: " ")
+    let simplifiedTitle = Self.toSimplifiedChinese(identity.title)
+    let simplifiedArtist = Self.toSimplifiedChinese(identity.artist)
+    let query = [simplifiedTitle, simplifiedArtist].joined(separator: " ")
     guard !query.isEmpty else { return [] }
 
     var components = URLComponents()
     components.scheme = "https"
     components.host = "music.163.com"
-    components.path = "/api/search/get/web"
+    components.path = "/api/search/suggest/web"
     components.queryItems = [
       URLQueryItem(name: "s", value: query),
-      URLQueryItem(name: "type", value: "1"),
       URLQueryItem(name: "limit", value: "10")
     ]
 
@@ -33,8 +34,13 @@ struct NeteaseProvider: LyricsProvider {
       throw NeteaseProviderError.requestFailed
     }
 
-    let searchResponse = try JSONDecoder().decode(NeteaseSearchResponse.self, from: data)
-    return searchResponse.result.songs.map { Self.makeCandidate(from: $0) }
+    let searchResponse: NeteaseSuggestResponse
+    do {
+      searchResponse = try JSONDecoder().decode(NeteaseSuggestResponse.self, from: data)
+    } catch {
+      return []
+    }
+    return searchResponse.result.songs?.compactMap { Self.makeCandidate(from: $0, identity: identity) } ?? []
   }
 
   func fetchLyrics(for candidate: LyricsCandidate) async throws -> LyricsResult {
@@ -76,25 +82,74 @@ struct NeteaseProvider: LyricsProvider {
       let lines = LRCParser.parse(lrcText)
       if !lines.isEmpty {
         return LyricsResult(content: .synced(lines), attribution: attribution, artworkURLString: nil)
+      } else {
+        return LyricsResult(content: .plain(lrcText), attribution: attribution, artworkURLString: nil)
       }
     }
 
     throw NeteaseProviderError.noLyrics
   }
 
-  static func makeCandidate(from song: NeteaseSearchResponse.Song) -> LyricsCandidate {
-    LyricsCandidate(
+  // MARK: - Scoring
+
+  static func makeCandidate(from song: NeteaseSuggestResponse.Song, identity: NormalizedTrackIdentity) -> LyricsCandidate? {
+    let simplifiedIdentityTitle = toSimplifiedChinese(identity.title)
+    let simplifiedIdentityArtist = toSimplifiedChinese(identity.artist)
+    let simplifiedSongName = toSimplifiedChinese(song.name)
+    let songArtist = song.artists.first?.name ?? ""
+    let simplifiedSongArtist = toSimplifiedChinese(songArtist)
+
+    var titleConfidence = 0.0
+    if simplifiedSongName.compare(simplifiedIdentityTitle, options: .caseInsensitive) == .orderedSame {
+      titleConfidence = 1.0
+    } else if simplifiedSongName.localizedCaseInsensitiveContains(simplifiedIdentityTitle) || simplifiedIdentityTitle.localizedCaseInsensitiveContains(simplifiedSongName) {
+      titleConfidence = 0.5
+    }
+
+    var artistConfidence = 0.0
+    if simplifiedSongArtist.compare(simplifiedIdentityArtist, options: .caseInsensitive) == .orderedSame {
+      artistConfidence = 1.0
+    } else if simplifiedSongArtist.localizedCaseInsensitiveContains(simplifiedIdentityArtist) || simplifiedIdentityArtist.localizedCaseInsensitiveContains(simplifiedSongArtist) {
+      artistConfidence = 0.5
+    }
+
+    var durationConfidence = 1.0
+    if let expectedDuration = identity.duration {
+      let songDurationSeconds = TimeInterval(song.duration) / 1000.0
+      let delta = abs(expectedDuration - songDurationSeconds)
+      if delta <= 15 {
+        durationConfidence = max(0, 1.0 - (delta / 15.0))
+      } else {
+        durationConfidence = -1.0
+      }
+    }
+
+    let rawConfidence = (titleConfidence + artistConfidence + durationConfidence) / 3.0
+
+    guard rawConfidence >= 0.5 else { return nil }
+
+    return LyricsCandidate(
       id: String(song.id),
       providerName: "netease",
       title: song.name,
-      artist: song.artists.first?.name ?? "",
+      artist: songArtist,
       album: song.album?.name,
       duration: TimeInterval(song.duration) / 1000.0,
       hasSyncedLyrics: true,
-      confidence: 1.0,
+      confidence: max(0.0, min(1.0, rawConfidence)),
       artworkURLString: nil,
       backlinkURLString: nil
     )
+  }
+
+  // MARK: - Chinese Conversion
+
+  /// Converts Traditional Chinese characters to Simplified Chinese using macOS ICU transforms.
+  /// Non-Chinese text passes through unchanged.
+  static func toSimplifiedChinese(_ text: String) -> String {
+    let mutable = NSMutableString(string: text)
+    CFStringTransform(mutable, nil, "Traditional-Simplified" as CFString, false)
+    return mutable as String
   }
 }
 
@@ -110,11 +165,11 @@ enum NeteaseProviderError: LocalizedError {
   }
 }
 
-struct NeteaseSearchResponse: Decodable {
+struct NeteaseSuggestResponse: Decodable {
   let result: Result
 
   struct Result: Decodable {
-    let songs: [Song]
+    let songs: [Song]?
   }
 
   struct Song: Decodable {

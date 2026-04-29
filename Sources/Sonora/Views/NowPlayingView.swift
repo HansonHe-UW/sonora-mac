@@ -5,19 +5,19 @@ struct NowPlayingView: View {
   var lyricsState: LyricsLookupState
   var currentTime: TimeInterval
   var onSeek: ((TimeInterval) -> Void)? = nil
+  var onReloadLyrics: (() -> Void)? = nil
+  var onSwitchSource: ((String) -> Void)? = nil
 
   var body: some View {
     Group {
       if let track {
-        ScrollView {
-          VStack(alignment: .leading, spacing: 28) {
-            TrackHeaderView(track: track)
-            LyricsPanelView(state: lyricsState, currentTime: currentTime, onSeek: onSeek)
-          }
-          .padding(32)
-          .frame(maxWidth: 760, alignment: .leading)
+        VStack(alignment: .leading, spacing: 28) {
+          TrackHeaderView(track: track)
+          LyricsPanelView(state: lyricsState, currentTime: currentTime, onSeek: onSeek, onReload: onReloadLyrics, onSwitchSource: onSwitchSource)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(32)
+        .frame(maxWidth: 760, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(.background)
       } else {
         EmptyLibraryView()

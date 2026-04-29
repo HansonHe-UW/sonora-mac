@@ -23,6 +23,14 @@ struct LyricsCacheStore {
     try data.write(to: fileURL, options: .atomic)
   }
 
+  func remove(for fingerprint: String) {
+    var cache = loadAll()
+    cache.removeValue(forKey: fingerprint)
+    if let data = try? encoder.encode(cache) {
+      try? data.write(to: fileURL, options: .atomic)
+    }
+  }
+
   private func loadAll() -> [String: LyricsResult] {
     guard let data = try? Data(contentsOf: fileURL) else {
       return [:]

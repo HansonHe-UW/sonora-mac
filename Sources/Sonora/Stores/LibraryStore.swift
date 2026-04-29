@@ -86,6 +86,13 @@ final class LibraryStore: ObservableObject {
     removeTracks(withIDs: [selectedTrackID])
   }
 
+  func removeAllTracks() {
+    tracks.removeAll()
+    selectedTrackID = nil
+    lastImportSummary = nil
+    persistSnapshot()
+  }
+
   func removeTracks(withIDs trackIDs: [Track.ID]) {
     guard !trackIDs.isEmpty else { return }
 

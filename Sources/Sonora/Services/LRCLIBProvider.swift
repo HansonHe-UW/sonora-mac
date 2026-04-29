@@ -14,6 +14,9 @@ struct LRCLIBProvider: LyricsProvider {
       return []
     }
 
+    let matchScore = score(match, identity: identity)
+    let confidence = max(0.0, min(1.0, matchScore / 3.0))
+
     return [
       LyricsCandidate(
         id: String(match.id),
@@ -23,7 +26,7 @@ struct LRCLIBProvider: LyricsProvider {
         album: match.albumName,
         duration: TimeInterval(match.duration),
         hasSyncedLyrics: !(match.syncedLyrics?.trimmedForMetadata.isEmpty ?? true),
-        confidence: 1.0,
+        confidence: confidence,
         artworkURLString: nil,
         backlinkURLString: nil
       )
@@ -52,7 +55,9 @@ struct LRCLIBProvider: LyricsProvider {
 
       do {
         let response: LRCLIBLyricsResponse = try await performRequest(path: "get", queryItems: queryItems)
-        return response
+        if score(response, identity: identity) >= 1.5 {
+          return response
+        }
       } catch LRCLIBProviderError.notFound {
         continue
       }
@@ -97,7 +102,7 @@ struct LRCLIBProvider: LyricsProvider {
       )
 
       if let best = response.max(by: { score($0, identity: identity) < score($1, identity: identity) }),
-         score(best, identity: identity) >= 1.0 {
+         score(best, identity: identity) >= 1.5 {
         return best
       }
     }
@@ -110,15 +115,23 @@ struct LRCLIBProvider: LyricsProvider {
 
     if response.trackName.compare(identity.title, options: .caseInsensitive) == .orderedSame {
       score += 1.0
+    } else if response.trackName.localizedCaseInsensitiveContains(identity.title) || identity.title.localizedCaseInsensitiveContains(response.trackName) {
+      score += 0.5
     }
 
     if response.artistName.compare(identity.artist, options: .caseInsensitive) == .orderedSame {
       score += 1.0
+    } else if response.artistName.localizedCaseInsensitiveContains(identity.artist) || identity.artist.localizedCaseInsensitiveContains(response.artistName) {
+      score += 0.5
     }
 
     if let expectedDuration = identity.duration {
       let delta = abs(expectedDuration - TimeInterval(response.duration))
-      score += max(0, 1 - min(delta / 12, 1))
+      if delta <= 15 {
+        score += max(0, 1 - (delta / 15))
+      } else {
+        score -= 2.0
+      }
     }
 
     if !(response.syncedLyrics?.trimmedForMetadata.isEmpty ?? true) {
@@ -126,9 +139,12 @@ struct LRCLIBProvider: LyricsProvider {
     }
 
     if let albumName = response.albumName,
-       let expectedAlbum = identity.album,
-       albumName.compare(expectedAlbum, options: .caseInsensitive) == .orderedSame {
-      score += 0.5
+       let expectedAlbum = identity.album {
+      if albumName.compare(expectedAlbum, options: .caseInsensitive) == .orderedSame {
+        score += 0.5
+      } else if albumName.localizedCaseInsensitiveContains(expectedAlbum) || expectedAlbum.localizedCaseInsensitiveContains(albumName) {
+        score += 0.25
+      }
     }
 
     return score
