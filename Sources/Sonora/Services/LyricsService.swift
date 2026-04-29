@@ -15,17 +15,20 @@ final class LyricsService: ObservableObject {
   private let cacheStore: LyricsCacheStore
   private let localLRCProvider: LocalLRCProvider
   private let lrclibProvider: LRCLIBProvider
+  private let neteaseProvider: NeteaseProvider
   private var loadTask: Task<Void, Never>?
   private var activeRequestID = UUID()
 
   init(
     cacheStore: LyricsCacheStore = LyricsCacheStore(),
     localLRCProvider: LocalLRCProvider = LocalLRCProvider(),
-    lrclibProvider: LRCLIBProvider = LRCLIBProvider()
+    lrclibProvider: LRCLIBProvider = LRCLIBProvider(),
+    neteaseProvider: NeteaseProvider = NeteaseProvider()
   ) {
     self.cacheStore = cacheStore
     self.localLRCProvider = localLRCProvider
     self.lrclibProvider = lrclibProvider
+    self.neteaseProvider = neteaseProvider
   }
 
   func loadLyrics(for track: Track?) {
@@ -78,6 +81,20 @@ final class LyricsService: ObservableObject {
         state = .ready(result)
 
         return
+      }
+
+      do {
+        if let neteaseCandidate = try await bestCandidate(from: neteaseProvider, identity: normalizedIdentity) {
+          let result = try await neteaseProvider.fetchLyrics(for: neteaseCandidate)
+          guard isActive(requestID) else { return }
+          try? cacheStore.save(result, for: track.fileFingerprint)
+          state = .ready(result)
+          return
+        }
+      } catch is CancellationError {
+        return
+      } catch {
+        // NetEase unavailable, continue to next provider
       }
 
       if let musixmatchProvider = musixmatchProviderIfConfigured,
