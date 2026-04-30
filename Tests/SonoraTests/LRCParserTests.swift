@@ -17,4 +17,20 @@ struct LRCParserTests {
     #expect(lines[1].time == 16.8)
     #expect(lines[2].time == 20.1)
   }
+
+  @Test
+  func appliesGlobalOffsetMetadataToAllTimestamps() {
+    let text = """
+    [offset:500]
+    [00:12.30]First line
+    [00:16.80][00:20.10]Second line
+    """
+
+    let lines = LRCParser.parse(text)
+
+    #expect(lines.count == 3)
+    #expect(lines[0].time == 11.8)
+    #expect(lines[1].time == 16.3)
+    #expect(lines[2].time == 19.6)
+  }
 }

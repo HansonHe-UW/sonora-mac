@@ -4,13 +4,14 @@ enum LRCParser {
   static func parse(_ text: String) -> [LyricsLine] {
     let lines = text.components(separatedBy: .newlines)
     var parsedLines: [LyricsLine] = []
+    let offset = offsetSeconds(from: text)
 
     for rawLine in lines {
       let timestamps = timestampsAndContent(from: rawLine)
       guard !timestamps.times.isEmpty else { continue }
 
       for time in timestamps.times {
-        parsedLines.append(LyricsLine(time: time, text: timestamps.content))
+        parsedLines.append(LyricsLine(time: max(0, time - offset), text: timestamps.content))
       }
     }
 
@@ -60,5 +61,21 @@ enum LRCParser {
     default:
       return (Double(text) ?? 0) / 1000
     }
+  }
+
+  private static func offsetSeconds(from text: String) -> TimeInterval {
+    let pattern = #"(?im)^\[offset:\s*([+-]?\d+)\s*\]$"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+      return 0
+    }
+
+    let nsText = text as NSString
+    guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)),
+          match.numberOfRanges >= 2 else {
+      return 0
+    }
+
+    let milliseconds = Double(nsText.substring(with: match.range(at: 1))) ?? 0
+    return milliseconds / 1000
   }
 }

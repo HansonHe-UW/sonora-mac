@@ -215,23 +215,21 @@ final class PlayerCore: ObservableObject {
   }
 
   private func installTimeObserver() {
-    // Dense rap / hip-hop lyrics can advance multiple lines within 250 ms.
-    // Use a tighter observer interval so synced lyric highlighting does not skip lines.
-    let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
+    // A 250 ms observer is visibly late for dense vocals. Keep the interval tighter,
+    // but avoid doing extra work in the callback so the main thread stays responsive.
+    let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
     timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] currentTime in
-      Task { @MainActor [weak self] in
+      MainActor.assumeIsolated {
         guard let self else { return }
         let seconds = CMTimeGetSeconds(currentTime)
         self.currentTime = seconds.isFinite ? max(seconds, 0) : 0
 
         guard let duration = self.currentTrack?.duration, duration > 0 else {
           self.progress = 0
-          self.updateNowPlayingInfo()
           return
         }
 
         self.progress = min(max(self.currentTime / duration, 0), 1)
-        self.updateNowPlayingInfo()
       }
     }
   }
