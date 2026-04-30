@@ -58,6 +58,21 @@ struct PlayerCoreTests {
   }
 
   @Test
+  func seekMarksSeeking() {
+    let track = Track(title: "Song", artist: "Artist", duration: 200, fileExtension: "mp3", fileFingerprint: "fp1")
+    let playerCore = PlayerCore()
+    playerCore.updateQueue([track])
+    playerCore.load(track)
+
+    // With no real player item loaded, seek completes trivially but isSeeking should reset.
+    playerCore.seek(to: 0.5)
+    #expect(playerCore.currentTime == 100)
+    #expect(playerCore.progress == 0.5)
+    // isSeeking should be false again once there's no player item to seek (fast path).
+    #expect(!playerCore.isSeeking)
+  }
+
+  @Test
   func repeatOneRestartsCurrentTrackWhenPlaybackEnds() {
     let track = Track(title: "First", artist: "Artist", duration: 200, fileExtension: "mp3", fileFingerprint: "1")
     let playerCore = PlayerCore()

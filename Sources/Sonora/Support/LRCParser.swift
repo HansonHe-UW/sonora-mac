@@ -15,7 +15,9 @@ enum LRCParser {
       }
     }
 
-    return parsedLines.sorted { $0.time < $1.time }
+    return parsedLines
+      .filter { !$0.text.isEmpty }
+      .sorted { $0.time < $1.time }
   }
 
   private static func timestampsAndContent(from line: String) -> (times: [TimeInterval], content: String) {

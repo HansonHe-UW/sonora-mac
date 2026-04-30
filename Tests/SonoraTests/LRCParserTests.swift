@@ -19,6 +19,36 @@ struct LRCParserTests {
   }
 
   @Test
+  func filtersBlankLinesFromParsedResult() {
+    let text = """
+    [00:10.00]First line
+    [00:15.00]
+    [00:20.00]Third line
+    """
+
+    let lines = LRCParser.parse(text)
+
+    #expect(lines.count == 2)
+    #expect(lines[0].text == "First line")
+    #expect(lines[1].text == "Third line")
+  }
+
+  @Test
+  func filtersMultipleBlankLinesAtSameTimestamp() {
+    let text = """
+    [00:00.000]
+    [00:00.000]Actual lyric
+    [00:05.000]Next lyric
+    """
+
+    let lines = LRCParser.parse(text)
+
+    #expect(lines.count == 2)
+    #expect(lines[0].text == "Actual lyric")
+    #expect(lines[1].text == "Next lyric")
+  }
+
+  @Test
   func appliesGlobalOffsetMetadataToAllTimestamps() {
     let text = """
     [offset:500]

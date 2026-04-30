@@ -28,6 +28,7 @@ final class PlayerCore: ObservableObject {
   private var timeObserver: Any?
   private var itemEndObserver: NSObjectProtocol?
   private var accessedPlaybackURL: URL?
+  private(set) var isSeeking = false
 
   init() {
     player.volume = Float(volume)
@@ -155,7 +156,12 @@ final class PlayerCore: ObservableObject {
 
     guard player.currentItem != nil else { return }
     let cmTime = CMTime(seconds: targetTime, preferredTimescale: 600)
-    player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+    isSeeking = true
+    player.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] _ in
+      Task { @MainActor [weak self] in
+        self?.isSeeking = false
+      }
+    }
     updateNowPlayingInfo()
   }
 
@@ -220,7 +226,7 @@ final class PlayerCore: ObservableObject {
     let interval = CMTime(seconds: 0.1, preferredTimescale: 600)
     timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] currentTime in
       MainActor.assumeIsolated {
-        guard let self else { return }
+        guard let self, !self.isSeeking else { return }
         let seconds = CMTimeGetSeconds(currentTime)
         self.currentTime = seconds.isFinite ? max(seconds, 0) : 0
 
