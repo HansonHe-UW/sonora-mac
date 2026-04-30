@@ -61,6 +61,17 @@ final class LyricsService: ObservableObject {
       guard isActive(requestID) else { return }
       state = .ready(cached)
       trackLyricsViewIfNeeded(from: cached)
+
+      if let upgradedResult = await upgradedPreferredResultIfNeeded(
+        from: cached,
+        track: track,
+        requestID: requestID,
+        ignoring: providers
+      ) {
+        guard isActive(requestID) else { return }
+        try? cacheStore.save(upgradedResult, for: track.fileFingerprint)
+        state = .ready(upgradedResult)
+      }
       return
     }
 
@@ -150,5 +161,32 @@ final class LyricsService: ObservableObject {
 
   private func isActive(_ requestID: UUID) -> Bool {
     activeRequestID == requestID
+  }
+
+  private func upgradedPreferredResultIfNeeded(
+    from cached: LyricsResult,
+    track: Track,
+    requestID: UUID,
+    ignoring providers: Set<String>
+  ) async -> LyricsResult? {
+    guard cached.attribution.providerName == lrclibProvider.name else { return nil }
+    guard isAutoDownloadEnabled else { return nil }
+    guard !providers.contains(neteaseProvider.name) else { return nil }
+    guard isActive(requestID) else { return nil }
+
+    let normalizedIdentity = TrackMetadataNormalizer.normalize(track.identity)
+
+    do {
+      guard let candidate = try await bestCandidate(from: neteaseProvider, identity: normalizedIdentity) else {
+        return nil
+      }
+
+      guard isActive(requestID) else { return nil }
+      return try await neteaseProvider.fetchLyrics(for: candidate)
+    } catch is CancellationError {
+      return nil
+    } catch {
+      return nil
+    }
   }
 }
