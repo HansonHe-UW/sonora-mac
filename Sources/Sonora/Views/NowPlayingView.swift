@@ -59,6 +59,9 @@ private struct TrackHeaderView: View {
         HStack(spacing: 12) {
           Label(track.fileExtension.uppercased(), systemImage: "waveform")
           Label(TimeFormatter.playbackTime(track.duration), systemImage: "clock")
+          if let releaseYear = track.releaseYear, !releaseYear.isEmpty {
+            Label(releaseYear, systemImage: "calendar")
+          }
         }
         .font(.caption)
         .foregroundStyle(.secondary)

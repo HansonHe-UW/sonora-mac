@@ -4,7 +4,7 @@ set -euo pipefail
 APP_NAME="Sonora"
 BUNDLE_ID="com.shengyuanhe.sonora"
 MIN_SYSTEM_VERSION="14.0"
-VERSION="${VERSION:-0.1.3}"
+VERSION="${VERSION:-0.1.4}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"

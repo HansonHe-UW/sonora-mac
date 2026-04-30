@@ -69,7 +69,7 @@ struct ContentView: View {
     }
     .onChange(of: artworkService.latestArtworkSuggestion) { _, suggestion in
       guard let suggestion else { return }
-      libraryStore.updateArtwork(for: suggestion.trackID, artworkData: suggestion.artworkData)
+      libraryStore.applyArtworkSuggestion(suggestion)
     }
     .onDeleteCommand {
       libraryStore.removeSelectedTrack()

@@ -22,6 +22,7 @@ struct Track: Identifiable, Hashable {
   var title: String
   var artist: String
   var album: String?
+  var releaseYear: String?
   var duration: TimeInterval?
   var fileExtension: String
   var fileURL: URL?
@@ -36,6 +37,7 @@ struct Track: Identifiable, Hashable {
     title: String,
     artist: String,
     album: String? = nil,
+    releaseYear: String? = nil,
     duration: TimeInterval? = nil,
     fileExtension: String,
     fileURL: URL? = nil,
@@ -48,6 +50,7 @@ struct Track: Identifiable, Hashable {
     self.title = title
     self.artist = artist
     self.album = album
+    self.releaseYear = releaseYear
     self.duration = duration
     self.fileExtension = fileExtension
     self.fileURL = fileURL
@@ -59,6 +62,7 @@ struct Track: Identifiable, Hashable {
       title: title,
       artist: artist,
       album: album,
+      releaseYear: releaseYear,
       duration: duration,
       isrc: nil,
       fileName: fileURL?.lastPathComponent ?? "\(title).\(fileExtension)",
@@ -74,6 +78,7 @@ struct TrackIdentity: Hashable {
   var title: String?
   var artist: String?
   var album: String?
+  var releaseYear: String?
   var duration: TimeInterval?
   var isrc: String?
   var fileName: String

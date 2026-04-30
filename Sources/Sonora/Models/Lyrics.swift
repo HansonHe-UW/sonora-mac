@@ -85,12 +85,14 @@ struct LyricsResult: Hashable, Codable {
 struct ArtworkSuggestion: Identifiable, Hashable {
   let id: UUID
   var trackID: Track.ID
-  var artworkData: Data
+  var artworkData: Data?
+  var releaseYear: String?
 
-  init(id: UUID = UUID(), trackID: Track.ID, artworkData: Data) {
+  init(id: UUID = UUID(), trackID: Track.ID, artworkData: Data?, releaseYear: String? = nil) {
     self.id = id
     self.trackID = trackID
     self.artworkData = artworkData
+    self.releaseYear = releaseYear
   }
 }
 

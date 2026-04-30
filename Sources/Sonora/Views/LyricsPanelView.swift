@@ -220,12 +220,6 @@ private struct LyricsResultView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-
-        if let backlinkURLString = result.attribution.backlinkURLString,
-           let backlinkURL = URL(string: backlinkURLString) {
-          Link("Open lyrics source", destination: backlinkURL)
-            .font(.caption)
-        }
       }
     }
   }

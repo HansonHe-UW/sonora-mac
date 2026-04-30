@@ -9,6 +9,8 @@ final class PlayerCore: ObservableObject {
   @Published private(set) var playbackState: PlaybackState = .stopped
   @Published private(set) var currentTrack: Track?
   @Published private(set) var currentTime: TimeInterval = 0
+  @Published private(set) var isShuffleEnabled = false
+  @Published private(set) var repeatMode: PlaybackRepeatMode = .off
   @Published var progress: Double = 0
   @Published var volume: Double = 0.8 {
     didSet {
@@ -20,7 +22,9 @@ final class PlayerCore: ObservableObject {
   private let nowPlayingInfoCenter = MPNowPlayingInfoCenter.default()
   private let remoteCommandCenter = MPRemoteCommandCenter.shared()
   private var queue: [Track] = []
+  private var playOrder: [Int] = []
   private var currentIndex: Int?
+  private var orderPosition: Int?
   private var timeObserver: Any?
   private var itemEndObserver: NSObjectProtocol?
   private var accessedPlaybackURL: URL?
@@ -37,8 +41,7 @@ final class PlayerCore: ObservableObject {
   }
 
   var canPlayNext: Bool {
-    guard let currentIndex else { return false }
-    return currentIndex < queue.index(before: queue.endIndex)
+    nextPlayableIndex() != nil
   }
 
   func updateQueue(_ tracks: [Track]) {
@@ -49,15 +52,18 @@ final class PlayerCore: ObservableObject {
 
     if let currentTrackID, let index = queue.firstIndex(where: { $0.id == currentTrackID }) {
       currentIndex = index
+      rebuildPlayOrder(anchoredAt: index)
       currentTrack = queue[index]
       updateNowPlayingInfo()
       return
     }
 
     if queue.isEmpty {
+      rebuildPlayOrder(anchoredAt: nil)
       unloadCurrentTrack()
     } else {
       let fallbackIndex = min(previousCurrentIndex ?? 0, queue.count - 1)
+      rebuildPlayOrder(anchoredAt: fallbackIndex)
       prepareTrack(queue[fallbackIndex], autoPlay: shouldResumePlayback)
     }
   }
@@ -68,8 +74,26 @@ final class PlayerCore: ObservableObject {
       return
     }
 
+    guard let index = queue.firstIndex(where: { $0.id == track.id }) else {
+      let shouldAutoPlay = playbackState == .playing
+      prepareTrack(track, autoPlay: shouldAutoPlay)
+      return
+    }
+
     let shouldAutoPlay = playbackState == .playing
-    prepareTrack(track, autoPlay: shouldAutoPlay)
+    rebuildPlayOrder(anchoredAt: index)
+    prepareTrack(queue[index], autoPlay: shouldAutoPlay)
+  }
+
+  func toggleShuffle() {
+    isShuffleEnabled.toggle()
+    rebuildPlayOrder(anchoredAt: currentIndex)
+    updateNowPlayingInfo()
+  }
+
+  func cycleRepeatMode() {
+    repeatMode.cycle()
+    updateNowPlayingInfo()
   }
 
   func togglePlayPause() {
@@ -92,22 +116,24 @@ final class PlayerCore: ObservableObject {
   }
 
   func playPrevious() {
-    guard let currentIndex else { return }
+    guard currentIndex != nil else { return }
 
     if currentTime > 3 {
       seek(to: 0)
       return
     }
 
-    let previousIndex = max(0, currentIndex - 1)
+    guard let previousIndex = previousPlayableIndex() else {
+      seek(to: 0)
+      return
+    }
+
     prepareTrack(queue[previousIndex], autoPlay: playbackState == .playing)
   }
 
   func playNext() {
-    guard let currentIndex else { return }
-
-    let nextIndex = min(queue.count - 1, currentIndex + 1)
-    guard nextIndex != currentIndex else {
+    guard currentIndex != nil else { return }
+    guard let nextIndex = nextPlayableIndex() else {
       seek(to: 0)
       return
     }
@@ -141,6 +167,7 @@ final class PlayerCore: ObservableObject {
 
     currentTrack = track
     currentIndex = queue.firstIndex(where: { $0.id == track.id })
+    syncOrderPosition()
     currentTime = 0
     progress = 0
 
@@ -178,6 +205,7 @@ final class PlayerCore: ObservableObject {
     player.replaceCurrentItem(with: nil)
     currentTrack = nil
     currentIndex = nil
+    orderPosition = nil
     currentTime = 0
     progress = 0
     playbackState = .stopped
@@ -187,7 +215,9 @@ final class PlayerCore: ObservableObject {
   }
 
   private func installTimeObserver() {
-    let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
+    // Dense rap / hip-hop lyrics can advance multiple lines within 250 ms.
+    // Use a tighter observer interval so synced lyric highlighting does not skip lines.
+    let interval = CMTime(seconds: 0.05, preferredTimescale: 600)
     timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] currentTime in
       Task { @MainActor [weak self] in
         guard let self else { return }
@@ -226,14 +256,24 @@ final class PlayerCore: ObservableObject {
     }
   }
 
-  private func advanceAfterCurrentTrack() {
-    guard let currentIndex else {
+  func advanceAfterCurrentTrack() {
+    guard currentIndex != nil else {
       unloadCurrentTrack()
       return
     }
 
-    let nextIndex = currentIndex + 1
-    guard queue.indices.contains(nextIndex) else {
+    if repeatMode == .one {
+      player.seek(to: .zero)
+      currentTime = 0
+      progress = 0
+      if playbackState == .playing {
+        player.play()
+      }
+      updateNowPlayingInfo()
+      return
+    }
+
+    guard let nextIndex = nextPlayableIndex() else {
       player.seek(to: .zero)
       player.pause()
       playbackState = .paused
@@ -273,6 +313,62 @@ final class PlayerCore: ObservableObject {
       accessedPlaybackURL.stopAccessingSecurityScopedResource()
       self.accessedPlaybackURL = nil
     }
+  }
+
+  private func rebuildPlayOrder(anchoredAt anchorIndex: Int?) {
+    let indices = Array(queue.indices)
+
+    guard !indices.isEmpty else {
+      playOrder = []
+      orderPosition = nil
+      return
+    }
+
+    if isShuffleEnabled {
+      if let anchorIndex {
+        var remaining = indices.filter { $0 != anchorIndex }
+        remaining.shuffle()
+        playOrder = [anchorIndex] + remaining
+        orderPosition = 0
+      } else {
+        playOrder = indices.shuffled()
+        orderPosition = nil
+      }
+    } else {
+      playOrder = indices
+      orderPosition = anchorIndex.flatMap { playOrder.firstIndex(of: $0) }
+    }
+  }
+
+  private func syncOrderPosition() {
+    guard let currentIndex else {
+      orderPosition = nil
+      return
+    }
+
+    if isShuffleEnabled {
+      if playOrder.count != queue.count || !playOrder.contains(currentIndex) {
+        rebuildPlayOrder(anchoredAt: currentIndex)
+        return
+      }
+    } else if playOrder != Array(queue.indices) {
+      rebuildPlayOrder(anchoredAt: currentIndex)
+      return
+    }
+
+    orderPosition = playOrder.firstIndex(of: currentIndex)
+  }
+
+  private func previousPlayableIndex() -> Int? {
+    guard let orderPosition, orderPosition > 0 else { return nil }
+    return playOrder[orderPosition - 1]
+  }
+
+  private func nextPlayableIndex() -> Int? {
+    guard let orderPosition else { return nil }
+    let nextPosition = orderPosition + 1
+    guard playOrder.indices.contains(nextPosition) else { return nil }
+    return playOrder[nextPosition]
   }
 
   private func configureRemoteCommands() {

@@ -9,7 +9,7 @@ struct iTunesArtworkProvider: ArtworkProvider {
     self.session = session
   }
 
-  func fetchArtwork(for identity: NormalizedTrackIdentity) async throws -> Data? {
+  func fetchArtwork(for identity: NormalizedTrackIdentity) async throws -> ArtworkProviderResult? {
     guard let searchURL = buildSearchURL(for: identity) else { return nil }
 
     let (data, response) = try await session.data(from: searchURL)
@@ -17,7 +17,13 @@ struct iTunesArtworkProvider: ArtworkProvider {
       return nil
     }
 
-    guard let artworkURLString = bestArtworkURLString(from: data, identity: identity) else { return nil }
+    guard let match = bestMatch(from: data, identity: identity) else { return nil }
+
+    let releaseYear = releaseYear(from: match)
+
+    guard let artworkURLString = match["artworkUrl100"] as? String else {
+      return ArtworkProviderResult(artworkData: nil, releaseYear: releaseYear)
+    }
 
     let highResURLString = artworkURLString
       .replacingOccurrences(of: "100x100bb", with: "600x600bb")
@@ -27,10 +33,10 @@ struct iTunesArtworkProvider: ArtworkProvider {
     guard let artworkHTTP = artworkResponse as? HTTPURLResponse,
           artworkHTTP.statusCode == 200,
           !artworkData.isEmpty else {
-      return nil
+      return ArtworkProviderResult(artworkData: nil, releaseYear: releaseYear)
     }
 
-    return artworkData
+    return ArtworkProviderResult(artworkData: artworkData, releaseYear: releaseYear)
   }
 
   private func buildSearchURL(for identity: NormalizedTrackIdentity) -> URL? {
@@ -51,7 +57,7 @@ struct iTunesArtworkProvider: ArtworkProvider {
 
   /// Picks the best matching album artwork from iTunes results by comparing
   /// album name and artist against the track's metadata.
-  private func bestArtworkURLString(from data: Data, identity: NormalizedTrackIdentity) -> String? {
+  private func bestMatch(from data: Data, identity: NormalizedTrackIdentity) -> [String: Any]? {
     guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let results = json["results"] as? [[String: Any]] else {
       return nil
@@ -66,8 +72,6 @@ struct iTunesArtworkProvider: ArtworkProvider {
     var bestScore = -1.0
 
     for result in results {
-      guard result["artworkUrl100"] is String else { continue }
-
       var score = 0.0
       if let collectionName = result["collectionName"] as? String {
         let normalizedCollection = normalize(collectionName)
@@ -94,7 +98,18 @@ struct iTunesArtworkProvider: ArtworkProvider {
     }
 
     guard bestScore >= Self.minimumArtworkMatchScore else { return nil }
-    return bestResult?["artworkUrl100"] as? String
+    return bestResult
+  }
+
+  private func releaseYear(from result: [String: Any]) -> String? {
+    if let releaseDate = result["releaseDate"] as? String {
+      let digits = releaseDate.filter(\.isNumber)
+      if digits.count >= 4 {
+        return String(digits.prefix(4))
+      }
+    }
+
+    return nil
   }
 
   /// Lowercases and converts Traditional Chinese to Simplified for comparison.

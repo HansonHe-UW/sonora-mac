@@ -56,8 +56,12 @@ final class LibraryStore: ObservableObject {
 
     guard panel.runModal() == .OK else { return }
 
+    importFiles(from: panel.urls)
+  }
+
+  func importFiles(from urls: [URL]) {
     isImporting = true
-    let selectedURLs = ImportSourceCollector.collectCandidateFiles(from: panel.urls)
+    let selectedURLs = ImportSourceCollector.collectCandidateFiles(from: urls)
 
     Task {
       let batch = await importer.importTracks(from: selectedURLs)
@@ -73,6 +77,21 @@ final class LibraryStore: ObservableObject {
   func presentImportSummary() {
     guard let lastImportSummary else { return }
     activeImportSummary = lastImportSummary
+  }
+
+  func applyArtworkSuggestion(_ suggestion: ArtworkSuggestion) {
+    guard let index = tracks.firstIndex(where: { $0.id == suggestion.trackID }) else { return }
+
+    if let artworkData = suggestion.artworkData {
+      tracks[index].artworkData = artworkData
+    }
+
+    if let releaseYear = suggestion.releaseYear, !releaseYear.isEmpty {
+      tracks[index].releaseYear = releaseYear
+      tracks[index].identity.releaseYear = releaseYear
+    }
+
+    persistSnapshot()
   }
 
   func updateArtwork(for trackID: Track.ID, artworkData: Data) {
@@ -114,6 +133,24 @@ final class LibraryStore: ObservableObject {
       }
     }
 
+    persistSnapshot()
+  }
+
+  func moveTrack(withID trackID: Track.ID, before targetID: Track.ID) {
+    guard trackID != targetID,
+          let fromIndex = tracks.firstIndex(where: { $0.id == trackID }),
+          let targetIndex = tracks.firstIndex(where: { $0.id == targetID }) else {
+      return
+    }
+
+    let track = tracks.remove(at: fromIndex)
+    let insertionIndex = fromIndex < targetIndex ? max(targetIndex - 1, 0) : targetIndex
+    tracks.insert(track, at: insertionIndex)
+    persistSnapshot()
+  }
+
+  func moveTracks(fromOffsets offsets: IndexSet, toOffset destination: Int) {
+    tracks.move(fromOffsets: offsets, toOffset: destination)
     persistSnapshot()
   }
 

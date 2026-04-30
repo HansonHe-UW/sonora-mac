@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
   @ObservedObject var libraryStore: LibraryStore
@@ -6,6 +7,8 @@ struct SidebarView: View {
   @State private var showClearConfirmation = false
 
   var body: some View {
+    let canReorder = searchText.trimmingCharacters(in: .whitespaces).isEmpty
+
     VStack(spacing: 0) {
       List(selection: $libraryStore.selectedTrackID) {
         if let summary = libraryStore.lastImportSummary {
@@ -24,6 +27,21 @@ struct SidebarView: View {
           } else if visible.isEmpty {
             Text(verbatim: "No results for \"\(searchText)\".")
               .foregroundStyle(.secondary)
+          } else if canReorder {
+            ForEach(libraryStore.tracks) { track in
+              TrackRow(track: track)
+                .tag(track.id as Track.ID?)
+                .contextMenu {
+                  Button(role: .destructive) {
+                    libraryStore.removeTracks(withIDs: [track.id])
+                  } label: {
+                    Label("Remove from Library", systemImage: "trash")
+                  }
+                }
+            }
+            .onMove { offsets, destination in
+              libraryStore.moveTracks(fromOffsets: offsets, toOffset: destination)
+            }
           } else {
             ForEach(visible) { track in
               TrackRow(track: track)
@@ -45,6 +63,9 @@ struct SidebarView: View {
             .padding(14)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         }
+      }
+      .onDrop(of: [UTType.fileURL.identifier], isTargeted: nil) { providers in
+        handleDroppedFiles(providers)
       }
       .listStyle(.sidebar)
       .searchable(text: $searchText, placement: .sidebar, prompt: "Search Library")
@@ -101,6 +122,52 @@ struct SidebarView: View {
       $0.title.lowercased().contains(q) ||
       $0.artist.lowercased().contains(q) ||
       ($0.album?.lowercased().contains(q) ?? false)
+    }
+  }
+
+  private func handleDroppedFiles(_ providers: [NSItemProvider]) -> Bool {
+    let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+    guard !fileProviders.isEmpty else { return false }
+
+    Task {
+      let urls = await droppedFileURLs(from: fileProviders)
+      guard !urls.isEmpty else { return }
+      await MainActor.run {
+        libraryStore.importFiles(from: urls)
+      }
+    }
+
+    return true
+  }
+
+  private func droppedFileURLs(from providers: [NSItemProvider]) async -> [URL] {
+    var urls: [URL] = []
+
+    for provider in providers {
+      if let url = await loadFileURL(from: provider) {
+        urls.append(url)
+      }
+    }
+
+    return urls
+  }
+
+  private func loadFileURL(from provider: NSItemProvider) async -> URL? {
+    await withCheckedContinuation { continuation in
+      provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+        if let data = item as? Data,
+           let url = URL(dataRepresentation: data, relativeTo: nil) {
+          continuation.resume(returning: url)
+          return
+        }
+
+        if let url = item as? URL {
+          continuation.resume(returning: url)
+          return
+        }
+
+        continuation.resume(returning: nil)
+      }
     }
   }
 }

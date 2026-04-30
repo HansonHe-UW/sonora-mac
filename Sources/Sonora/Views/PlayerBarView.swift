@@ -4,7 +4,7 @@ struct PlayerBarView: View {
   @ObservedObject var playerCore: PlayerCore
 
   var body: some View {
-    HStack(spacing: 18) {
+    HStack(spacing: 16) {
       TrackArtworkView(
         artworkData: playerCore.currentTrack?.artworkData,
         cornerRadius: 6,
@@ -12,33 +12,56 @@ struct PlayerBarView: View {
       )
       .frame(width: 42, height: 42)
 
-      Button {
-        playerCore.playPrevious()
-      } label: {
-        Image(systemName: "backward.fill")
-      }
-      .buttonStyle(.borderless)
-      .disabled(!playerCore.canPlayPrevious)
-      .help("Previous track")
+      HStack(spacing: 18) {
+        Button {
+          playerCore.toggleShuffle()
+        } label: {
+          Image(systemName: "shuffle")
+            .foregroundStyle(playerCore.isShuffleEnabled ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.borderless)
+        .disabled(playerCore.currentTrack == nil)
+        .help(playerCore.isShuffleEnabled ? "Shuffle on" : "Shuffle off")
 
-      Button {
-        playerCore.togglePlayPause()
-      } label: {
-        Image(systemName: playerCore.playbackState == .playing ? "pause.fill" : "play.fill")
-          .frame(width: 18)
-      }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.large)
-      .help(playerCore.playbackState == .playing ? "Pause" : "Play")
+        Button {
+          playerCore.playPrevious()
+        } label: {
+          Image(systemName: "backward.fill")
+        }
+        .buttonStyle(.borderless)
+        .disabled(!playerCore.canPlayPrevious)
+        .help("Previous track")
 
-      Button {
-        playerCore.playNext()
-      } label: {
-        Image(systemName: "forward.fill")
+        Button {
+          playerCore.togglePlayPause()
+        } label: {
+          Image(systemName: playerCore.playbackState == .playing ? "pause.fill" : "play.fill")
+            .frame(width: 18)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .help(playerCore.playbackState == .playing ? "Pause" : "Play")
+
+        Button {
+          playerCore.playNext()
+        } label: {
+          Image(systemName: "forward.fill")
+        }
+        .buttonStyle(.borderless)
+        .disabled(!playerCore.canPlayNext)
+        .help("Next track")
+
+        Button {
+          playerCore.cycleRepeatMode()
+        } label: {
+          Image(systemName: "repeat.1")
+            .foregroundStyle(playerCore.repeatMode == .one ? Color.accentColor : Color.primary)
+        }
+        .buttonStyle(.borderless)
+        .disabled(playerCore.currentTrack == nil)
+        .help(playerCore.repeatMode == .one ? "Single repeat on" : "Single repeat off")
       }
-      .buttonStyle(.borderless)
-      .disabled(!playerCore.canPlayNext)
-      .help("Next track")
+      .padding(.trailing, 10)
 
       VStack(alignment: .leading, spacing: 6) {
         HStack {

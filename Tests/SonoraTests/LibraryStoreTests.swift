@@ -45,4 +45,26 @@ struct LibraryStoreTests {
 
     try? FileManager.default.removeItem(at: tempDirectory)
   }
+
+  @Test
+  func movesTrackBeforeAnotherTrack() {
+    let tempDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let orderedTracks = [
+      Track(title: "Track 01", artist: "Album Artist", fileExtension: "mp3", fileFingerprint: "1"),
+      Track(title: "Track 02", artist: "Album Artist", fileExtension: "mp3", fileFingerprint: "2"),
+      Track(title: "Track 03", artist: "Album Artist", fileExtension: "mp3", fileFingerprint: "3")
+    ]
+
+    let store = LibraryStore(
+      tracks: orderedTracks,
+      persistenceStore: LibraryPersistenceStore(fileURL: tempDirectory.appendingPathComponent("library.json"))
+    )
+
+    store.moveTrack(withID: orderedTracks[2].id, before: orderedTracks[0].id)
+
+    #expect(store.tracks.map(\.title) == ["Track 03", "Track 01", "Track 02"])
+
+    try? FileManager.default.removeItem(at: tempDirectory)
+  }
 }
